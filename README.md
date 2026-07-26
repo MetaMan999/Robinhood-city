@@ -1,13 +1,13 @@
 # RHOOS CITY — NFT Work TCG
 
-RHOOS CITY is a playable first-person living-city trading card game. Explore a
-neon New York-inspired district, use a free origin character or verify an
-ERC-721 character NFT, build a work deck, win corporate job encounters, rise
-from intern to District Boss, own businesses, and automate the economy with
-HookTech.
+RHOOS CITY is a playable driving, first-person living-city trading card game.
+Explore a neon New York-inspired district on foot or in the RHO-86 street
+coupe, use a free origin character or verify an ERC-721 character NFT, build a
+work deck, win corporate job encounters, rise from intern to District Boss,
+own businesses, and automate the economy with HookTech.
 
-Version 0.5 turns the existing economic RPG into a TCG while preserving its
-3D city, traffic, citizens, property, jobs, careers, soundtrack, and simulation.
+Version 0.6 adds a complete enter/exit driving loop, smooth vehicle physics,
+chase camera, engine audio, boost, handbrake, damage, and mobile controls.
 
 ## Run locally
 
@@ -26,7 +26,12 @@ Open the local address printed by the development server.
 - Mouse: look around after clicking the game
 - Arrow keys: look and move
 - `Shift`: sprint
-- `E` or `F`: interact with a nearby building or begin an accepted card shift
+- `E` or `F`: interact, enter the nearby RHO-86, or exit when stopped
+- Driving `W/S`: accelerate, brake, and reverse
+- Driving `A/D`: steer
+- Driving `Shift`: boost
+- Driving `Space`: handbrake
+- Driving `R`: recover the car to Central Loop
 - `C`: NFT character and card deck
 - `J`: city jobs channel
 - `P`: character and career engine
@@ -51,6 +56,19 @@ Open the local address printed by the development server.
 - Five-rank company ladder: City Intern, Associate, Manager, Director, and
   District Boss
 - Company-HQ job alignment, promotions, and in-game wage bonuses
+
+## Driving systems
+
+- Parked personal RHO-86 street coupe visible inside the living city
+- Walk-up enter/exit interaction with safe low-speed exit
+- Smooth acceleration, coasting drag, braking, reverse, steering interpolation,
+  boost, and handbrake
+- Collision response, vehicle condition, odometer, gear, and MPH telemetry
+- Dynamic chase camera with speed-sensitive distance, look-ahead, smoothing,
+  and field of view
+- Modeled bodywork, glass, grille, lights, wheels, rims, and nighttime headlamps
+- Procedural engine tone that responds continuously to vehicle speed
+- Touch throttle, steering, reverse, handbrake, and exit controls
 
 Prototype company names are used as text-only roleplay workplaces. The game is
 not affiliated with, endorsed by, or sponsored by those companies or S&P Dow

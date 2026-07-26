@@ -514,6 +514,128 @@ canvas:focus-visible {
   grid-column: 2;
 }
 
+.mobile-drive .handbrake {
+  grid-column: 1 / 4;
+  background: rgba(244, 211, 94, 0.92);
+  color: var(--void);
+  font-size: 7px;
+  font-weight: 900;
+}
+
+.vehicle-target {
+  --target-accent: var(--gold);
+  border-color: var(--gold);
+  border-top-color: var(--gold);
+  background:
+    linear-gradient(110deg, rgba(244, 211, 94, 0.12), transparent 55%),
+    rgba(8, 11, 19, 0.88);
+}
+
+.driving-hud {
+  position: absolute;
+  z-index: 24;
+  left: 50%;
+  bottom: 22px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.speed-dial {
+  width: 112px;
+  height: 112px;
+  display: grid;
+  place-items: center;
+  position: relative;
+  border: 2px solid rgba(244, 211, 94, 0.75);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle, rgba(24, 29, 41, 0.96) 0 54%, rgba(8, 11, 18, 0.94) 55%),
+    #0b0f18;
+  box-shadow:
+    0 0 24px rgba(244, 211, 94, 0.14),
+    inset 0 0 18px rgba(0, 0, 0, 0.8);
+}
+
+.speed-dial::before {
+  content: "";
+  position: absolute;
+  inset: 7px;
+  border: 1px dashed rgba(103, 215, 229, 0.45);
+  border-radius: 50%;
+}
+
+.speed-dial > span {
+  position: absolute;
+  top: 23px;
+  color: var(--green);
+  font-size: 9px;
+  font-weight: 900;
+}
+
+.speed-dial > strong {
+  margin-top: 9px;
+  color: var(--paper);
+  font-family: Arial Black, Impact, sans-serif;
+  font-size: 34px;
+  line-height: 1;
+}
+
+.speed-dial > small {
+  position: absolute;
+  bottom: 21px;
+  color: var(--muted);
+  font-size: 6px;
+  letter-spacing: 0.14em;
+}
+
+.speed-dial > i {
+  width: 42px;
+  height: 2px;
+  position: absolute;
+  left: 14px;
+  top: 55px;
+  transform-origin: 42px center;
+  background: var(--pink);
+  box-shadow: 0 0 8px var(--pink);
+  transition: transform 0.12s linear;
+}
+
+.drive-data {
+  width: 210px;
+  padding: 12px 14px;
+  border: 1px solid rgba(103, 215, 229, 0.65);
+  border-left: 4px solid var(--cyan);
+  background: rgba(8, 11, 19, 0.86);
+  backdrop-filter: blur(7px);
+}
+
+.drive-data > span,
+.drive-data > strong {
+  display: block;
+}
+
+.drive-data > span {
+  color: var(--cyan);
+  font-size: 6px;
+  letter-spacing: 0.12em;
+}
+
+.drive-data > strong {
+  margin: 5px 0 9px;
+  color: var(--gold);
+  font-size: 11px;
+}
+
+.drive-data > div {
+  display: flex;
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 6px;
+}
+
 .live-panel-backdrop {
   position: absolute;
   inset: 0;
@@ -3045,6 +3167,41 @@ kbd {
   .role-ladder > div {
     border-right: 0;
     border-bottom: 1px solid var(--line);
+  }
+
+  .driving-hud {
+    left: auto;
+    right: 10px;
+    bottom: 15px;
+    transform: none;
+  }
+
+  .speed-dial {
+    width: 88px;
+    height: 88px;
+  }
+
+  .speed-dial > strong {
+    font-size: 27px;
+  }
+
+  .speed-dial > span {
+    top: 14px;
+  }
+
+  .speed-dial > small {
+    bottom: 13px;
+  }
+
+  .speed-dial > i {
+    width: 32px;
+    left: 12px;
+    top: 43px;
+    transform-origin: 32px center;
+  }
+
+  .drive-data {
+    display: none;
   }
 
   .company-grid {

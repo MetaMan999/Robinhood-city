@@ -15,6 +15,8 @@ export class RhoosSoundEngine {
   private context: AudioContext | null = null;
   private master: GainNode | null = null;
   private musicBus: GainNode | null = null;
+  private engineOscillator: OscillatorNode | null = null;
+  private engineGain: GainNode | null = null;
   private ambience: OscillatorNode[] = [];
   private timer: number | null = null;
   private step = 0;
@@ -83,6 +85,28 @@ export class RhoosSoundEngine {
     });
   }
 
+  setDriving(speed: number, active: boolean) {
+    if (!this.context || !this.master || this.muted) return;
+    if (!this.engineOscillator || !this.engineGain) {
+      this.engineOscillator = this.context.createOscillator();
+      this.engineGain = this.context.createGain();
+      const filter = this.context.createBiquadFilter();
+      filter.type = "lowpass";
+      filter.frequency.value = 620;
+      this.engineOscillator.type = "sawtooth";
+      this.engineGain.gain.value = 0.0001;
+      this.engineOscillator
+        .connect(filter)
+        .connect(this.engineGain)
+        .connect(this.master);
+      this.engineOscillator.start();
+    }
+    const now = this.context.currentTime;
+    const rpm = Math.min(1, Math.abs(speed) / 390);
+    this.engineOscillator.frequency.setTargetAtTime(48 + rpm * 112, now, 0.045);
+    this.engineGain.gain.setTargetAtTime(active ? 0.025 + rpm * 0.045 : 0.0001, now, 0.06);
+  }
+
   dispose() {
     if (this.timer !== null) window.clearInterval(this.timer);
     this.timer = null;
@@ -94,6 +118,13 @@ export class RhoosSoundEngine {
       }
     }
     this.ambience = [];
+    try {
+      this.engineOscillator?.stop();
+    } catch {
+      // Already stopped.
+    }
+    this.engineOscillator = null;
+    this.engineGain = null;
     void this.context?.close();
     this.context = null;
     this.master = null;

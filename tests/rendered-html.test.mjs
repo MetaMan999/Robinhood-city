@@ -25,11 +25,11 @@ test("server-renders the NFT work TCG shell", async () => {
     /<title>RHOOS CITY — NFT Work TCG<\/title>/i,
   );
   assert.match(html, /NFT WORK TCG \/ LIVING CITY ENGINE/);
-  assert.match(html, /Play a card\./);
+  assert.match(html, /Drive the city\./);
   assert.match(html, /Build a life\./);
   assert.match(html, /HOOKTECH CARD PROTOCOL/);
   assert.match(html, /ENTER 3D CITY \+ MUSIC/);
-  assert.match(html, /NFT CHARACTER \+ WORK TCG \+ CITY ECONOMY/);
+  assert.match(html, /DRIVING \+ NFT CHARACTER \+ WORK TCG \+ CITY ECONOMY/);
   assert.match(html, /og\.png/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton|Starter Project/i);
 });
@@ -51,6 +51,9 @@ test("keeps the NFT, unique card, corporate, WebGL, soundtrack, and HookTech eng
   assert.match(game, /playWorkCard/);
   assert.match(game, /cardLiveBonus/);
   assert.match(game, /createCardInstance/);
+  assert.match(game, /RHO-86/);
+  assert.match(game, /handbrake/);
+  assert.match(game, /vehicle\.odometer/);
   assert.match(game, /CAREER_TRACKS/);
   assert.match(game, /defaultProfile/);
   assert.match(game, /NFT CHARACTER \/ WORK TCG/);
@@ -61,11 +64,14 @@ test("keeps the NFT, unique card, corporate, WebGL, soundtrack, and HookTech eng
   assert.match(game, /localStorage/);
   assert.match(threeEngine, /new THREE\.WebGLRenderer/);
   assert.match(threeEngine, /function makeCar/);
+  assert.match(threeEngine, /chasePosition/);
+  assert.match(threeEngine, /SpotLight/);
   assert.match(threeEngine, /function makeNpc/);
   assert.match(threeEngine, /firstPersonRig/);
   assert.match(soundEngine, /AudioContext/);
   assert.match(soundEngine, /private tick/);
   assert.match(soundEngine, /private startAmbience/);
+  assert.match(soundEngine, /setDriving/);
   assert.match(data, /HOOK_MODULES/);
   assert.match(data, /Shift-to-Earn/);
   assert.match(data, /Traffic Oracle/);

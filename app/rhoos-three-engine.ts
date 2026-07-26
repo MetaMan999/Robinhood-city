@@ -16,6 +16,14 @@ import {
 
 export type Rhoos3DState = {
   player: { x: number; y: number; angle: number; pitch: number };
+  vehicle: {
+    x: number;
+    y: number;
+    angle: number;
+    speed: number;
+    steering: number;
+    inCar: boolean;
+  };
   profile: { skin: string; jacket: string; accent: string };
   simMinutes: number;
   elapsed: number;
@@ -308,12 +316,48 @@ function makeCar(index: number): AnimatedCar {
   cabin.position.set(-1, 12, 0);
   cabin.castShadow = true;
   group.add(cabin);
+  const hood = new THREE.Mesh(
+    new THREE.BoxGeometry(8.5, 2.2, 9.8),
+    new THREE.MeshStandardMaterial({
+      color: carColor,
+      roughness: 0.35,
+      metalness: 0.55,
+    }),
+  );
+  hood.position.set(7.4, 9.2, 0);
+  hood.castShadow = true;
+  group.add(hood);
+  const windshield = new THREE.Mesh(
+    new THREE.BoxGeometry(0.8, 5.2, 8.2),
+    new THREE.MeshStandardMaterial({
+      color: 0x9fd6e4,
+      emissive: 0x142f3b,
+      emissiveIntensity: 0.35,
+      roughness: 0.1,
+      metalness: 0.55,
+      transparent: true,
+      opacity: 0.76,
+    }),
+  );
+  windshield.position.set(4.4, 12.1, 0);
+  windshield.rotation.z = -0.28;
+  group.add(windshield);
   const bumper = new THREE.Mesh(
     new THREE.BoxGeometry(2, 2, 10),
     new THREE.MeshStandardMaterial({ color: 0xb8bec3, metalness: 0.8 }),
   );
   bumper.position.set(12.5, 4, 0);
   group.add(bumper);
+  const grille = new THREE.Mesh(
+    new THREE.BoxGeometry(0.8, 2.5, 6.4),
+    new THREE.MeshStandardMaterial({
+      color: 0x11151a,
+      metalness: 0.85,
+      roughness: 0.24,
+    }),
+  );
+  grille.position.set(12.85, 5.6, 0);
+  group.add(grille);
   const headlightMaterial = new THREE.MeshStandardMaterial({
     color: 0xfff1b5,
     emissive: 0xffe38b,
@@ -326,6 +370,16 @@ function makeCar(index: number): AnimatedCar {
     );
     light.position.set(12.2, 6.2, z);
     group.add(light);
+    const tail = new THREE.Mesh(
+      new THREE.BoxGeometry(0.7, 2, 2.6),
+      new THREE.MeshStandardMaterial({
+        color: 0xff425c,
+        emissive: 0xff163f,
+        emissiveIntensity: 1.8,
+      }),
+    );
+    tail.position.set(-12.2, 6.1, z);
+    group.add(tail);
   }
   const wheels: THREE.Mesh[] = [];
   const wheelGeometry = new THREE.CylinderGeometry(2.3, 2.3, 1.7, 12);
@@ -340,6 +394,17 @@ function makeCar(index: number): AnimatedCar {
       wheel.position.set(x, 3.2, z);
       wheel.castShadow = true;
       group.add(wheel);
+      const rim = new THREE.Mesh(
+        new THREE.CylinderGeometry(1.25, 1.25, 1.82, 10),
+        new THREE.MeshStandardMaterial({
+          color: 0xbec7ce,
+          metalness: 0.9,
+          roughness: 0.22,
+        }),
+      );
+      rim.rotation.x = Math.PI / 2;
+      rim.position.copy(wheel.position);
+      group.add(rim);
       wheels.push(wheel);
     }
   }
@@ -730,6 +795,20 @@ export function createRhoosThreeEngine(canvas: HTMLCanvasElement): RhoosThreeEng
     scene.add(car.group);
     cars.push(car);
   }
+  const playerCar = makeCar(4);
+  playerCar.group.scale.set(1.08, 1.08, 1.08);
+  const headlightTarget = new THREE.Object3D();
+  headlightTarget.position.set(90, 2, 0);
+  playerCar.group.add(headlightTarget);
+  for (const z of [-3.8, 3.8]) {
+    const beam = new THREE.SpotLight(0xffe7b0, 78, 180, 0.36, 0.65, 1.2);
+    beam.position.set(11, 7.2, z);
+    beam.target = headlightTarget;
+    playerCar.group.add(beam);
+  }
+  scene.add(playerCar.group);
+  const chasePosition = new THREE.Vector3();
+  let chaseReady = false;
 
   const npcs: AnimatedNpc[] = [];
   for (let index = 0; index < NPC_NAMES.length; index++) {
@@ -818,16 +897,51 @@ export function createRhoosThreeEngine(canvas: HTMLCanvasElement): RhoosThreeEng
       ? Math.sin(state.elapsed * (state.sprinting ? 13 : 9)) *
         (state.sprinting ? 2.8 : 1.7)
       : Math.sin(state.elapsed * 1.4) * 0.18;
-    camera.position.set(state.player.x, 42 + bob, state.player.y);
-    camera.rotation.y = -state.player.angle - Math.PI / 2;
-    camera.rotation.x = state.player.pitch;
     sleeveMaterial.color.set(state.profile.jacket);
     handMaterial.color.set(state.profile.skin);
     wristMaterial.color.set(state.profile.accent);
     wristMaterial.emissive.set(state.profile.accent);
-    firstPersonRig.position.y = state.moving
-      ? Math.sin(state.elapsed * (state.sprinting ? 13 : 9)) * 0.025
-      : 0;
+    firstPersonRig.visible = !state.vehicle.inCar;
+
+    playerCar.group.position.set(state.vehicle.x, 0, state.vehicle.y);
+    playerCar.group.rotation.y = -state.vehicle.angle;
+    const wheelSpeed = state.vehicle.speed * delta * 0.15;
+    for (const wheel of playerCar.wheels) wheel.rotation.z -= wheelSpeed;
+
+    if (state.vehicle.inCar) {
+      const speedRatio = THREE.MathUtils.clamp(Math.abs(state.vehicle.speed) / 390, 0, 1);
+      const chaseDistance = 54 + speedRatio * 24;
+      const desired = new THREE.Vector3(
+        state.vehicle.x - Math.cos(state.vehicle.angle) * chaseDistance,
+        31 + speedRatio * 11,
+        state.vehicle.y - Math.sin(state.vehicle.angle) * chaseDistance,
+      );
+      if (!chaseReady) {
+        chasePosition.copy(desired);
+        chaseReady = true;
+      }
+      chasePosition.lerp(desired, 1 - Math.exp(-delta * 6.2));
+      camera.position.copy(chasePosition);
+      const lookAhead = 16 + speedRatio * 38;
+      camera.lookAt(
+        state.vehicle.x + Math.cos(state.vehicle.angle) * lookAhead,
+        8,
+        state.vehicle.y + Math.sin(state.vehicle.angle) * lookAhead,
+      );
+      const targetFov = 72 + speedRatio * 13;
+      camera.fov += (targetFov - camera.fov) * Math.min(1, delta * 4);
+      camera.updateProjectionMatrix();
+    } else {
+      chaseReady = false;
+      camera.position.set(state.player.x, 42 + bob, state.player.y);
+      camera.rotation.y = -state.player.angle - Math.PI / 2;
+      camera.rotation.x = state.player.pitch;
+      camera.fov += (72 - camera.fov) * Math.min(1, delta * 5);
+      camera.updateProjectionMatrix();
+      firstPersonRig.position.y = state.moving
+        ? Math.sin(state.elapsed * (state.sprinting ? 13 : 9)) * 0.025
+        : 0;
+    }
 
     for (const car of cars) {
       const position = carPosition(car.index, state.elapsed);

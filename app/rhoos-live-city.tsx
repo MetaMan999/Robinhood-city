@@ -234,6 +234,16 @@ function initialCardInstances() {
 
 type Engine = {
   player: { x: number; y: number; angle: number; pitch: number };
+  vehicle: {
+    x: number;
+    y: number;
+    angle: number;
+    speed: number;
+    steering: number;
+    inCar: boolean;
+    odometer: number;
+    condition: number;
+  };
   simMinutes: number;
   day: number;
   speed: 1 | 3 | 8;
@@ -289,6 +299,16 @@ function initialEngine(): Engine {
     // Start looking east along Central Loop instead of directly into City Hall.
     // This gives the first frame a long city vista, visible traffic, and depth.
     player: { x: 970, y: 944, angle: 0, pitch: -0.03 },
+    vehicle: {
+      x: 1050,
+      y: 950,
+      angle: 0,
+      speed: 0,
+      steering: 0,
+      inCar: false,
+      odometer: 0,
+      condition: 100,
+    },
     simMinutes: 6 * 60 + 52,
     day: 1,
     speed: 1,
@@ -1217,6 +1237,7 @@ export default function RhoosLiveCity() {
           ...base,
           ...saved,
           player: { ...base.player, ...saved.player },
+          vehicle: { ...base.vehicle, ...saved.vehicle, inCar: false, speed: 0 },
           profile: { ...base.profile, ...saved.profile },
           tcg: {
             ...base.tcg,
@@ -1266,6 +1287,51 @@ export default function RhoosLiveCity() {
 
   const interact = useCallback(() => {
     const engine = engineRef.current;
+    if (engine.vehicle.inCar) {
+      if (Math.abs(engine.vehicle.speed) > 14) {
+        addEvent(engine, "Slow the RHO-86 below 3 mph before exiting.");
+        soundRef.current?.blip("error");
+        refresh();
+        return;
+      }
+      engine.vehicle.inCar = false;
+      engine.vehicle.speed = 0;
+      engine.player.x = clamp(
+        engine.vehicle.x - Math.sin(engine.vehicle.angle) * 24,
+        12,
+        MAP_WIDTH - 12,
+      );
+      engine.player.y = clamp(
+        engine.vehicle.y + Math.cos(engine.vehicle.angle) * 24,
+        12,
+        MAP_HEIGHT - 12,
+      );
+      engine.player.angle = engine.vehicle.angle;
+      engine.player.pitch = -0.03;
+      engine.moving = false;
+      soundRef.current?.setDriving(0, false);
+      soundRef.current?.blip("interact");
+      addEvent(engine, "Exited RHO-86. Vehicle parked.");
+      refresh();
+      return;
+    }
+    const distanceToVehicle = Math.hypot(
+      engine.player.x - engine.vehicle.x,
+      engine.player.y - engine.vehicle.y,
+    );
+    if (distanceToVehicle < 82) {
+      engine.vehicle.inCar = true;
+      engine.player.x = engine.vehicle.x;
+      engine.player.y = engine.vehicle.y;
+      engine.player.angle = engine.vehicle.angle;
+      engine.player.pitch = -0.08;
+      engine.moving = false;
+      setPanel(null);
+      soundRef.current?.blip("reward");
+      addEvent(engine, "RHO-86 ignition on. Drive the city with WASD.");
+      refresh();
+      return;
+    }
     const focused = getFocusedBuilding(engine);
     const nearest = BUILDINGS.map((building) => ({
       building,
@@ -1333,6 +1399,7 @@ export default function RhoosLiveCity() {
           "m",
           "p",
           "c",
+          "r",
           " ",
           "arrowleft",
           "arrowright",
@@ -1351,7 +1418,18 @@ export default function RhoosLiveCity() {
       if (key === "m") setPanel((current) => (current === "map" ? null : "map"));
       if (key === "p") setPanel((current) => (current === "player" ? null : "player"));
       if (key === "c") setPanel((current) => (current === "cards" ? null : "cards"));
-      if (key === " " && !workGame) {
+      if (key === "r" && engineRef.current.vehicle.inCar) {
+        const current = engineRef.current;
+        current.vehicle.x = 1050;
+        current.vehicle.y = 950;
+        current.vehicle.angle = 0;
+        current.vehicle.speed = 0;
+        current.vehicle.steering = 0;
+        addEvent(current, "RHO-86 recovered to Central Loop.");
+        soundRef.current?.blip("hook");
+        refresh();
+      }
+      if (key === " " && !workGame && !engineRef.current.vehicle.inCar) {
         engineRef.current.paused = !engineRef.current.paused;
         refresh();
       }
@@ -1461,41 +1539,111 @@ export default function RhoosLiveCity() {
 
       if (!engine.paused && !introOpen) {
         const keys = keysRef.current;
-        const turn =
-          (keys.has("arrowright") || keys.has("q") ? 1 : 0) -
-          (keys.has("arrowleft") ? 1 : 0);
-        engine.player.angle = normalizeAngle(engine.player.angle + turn * delta * 1.7);
+        if (engine.vehicle.inCar) {
+          const throttle =
+            (keys.has("w") || keys.has("arrowup") ? 1 : 0) -
+            (keys.has("s") || keys.has("arrowdown") ? 1 : 0);
+          const steerInput =
+            (keys.has("d") || keys.has("arrowright") ? 1 : 0) -
+            (keys.has("a") || keys.has("arrowleft") ? 1 : 0);
+          const boosting = keys.has("shift") && throttle > 0;
+          const handbrake = keys.has(" ");
+          const maxForward = boosting ? 390 : 315;
+          const maxReverse = -105;
+          const acceleration = boosting ? 185 : 132;
 
-        const forward =
-          (keys.has("w") || keys.has("arrowup") ? 1 : 0) -
-          (keys.has("s") || keys.has("arrowdown") ? 1 : 0);
-        const strafe = (keys.has("d") ? 1 : 0) - (keys.has("a") ? 1 : 0);
-        engine.sprinting = keys.has("shift") && engine.energy > 3;
-        engine.moving = Boolean(forward || strafe);
-        if (engine.moving) {
-          const magnitude = Math.hypot(forward, strafe);
-          const speed = (engine.sprinting ? 195 : 118) * delta;
-          const forwardX = Math.cos(engine.player.angle);
-          const forwardY = Math.sin(engine.player.angle);
-          const rightX = -forwardY;
-          const rightY = forwardX;
-          const nextX = clamp(
-            engine.player.x +
-              ((forward / magnitude) * forwardX + (strafe / magnitude) * rightX) * speed,
-            12,
-            MAP_WIDTH - 12,
+          engine.vehicle.steering +=
+            (steerInput - engine.vehicle.steering) * Math.min(1, delta * 6.5);
+          if (throttle > 0) {
+            engine.vehicle.speed +=
+              (engine.vehicle.speed < 0 ? 235 : acceleration) * delta;
+          } else if (throttle < 0) {
+            engine.vehicle.speed -=
+              (engine.vehicle.speed > 0 ? 255 : 92) * delta;
+          } else {
+            engine.vehicle.speed *= Math.exp(-delta * 1.18);
+          }
+          if (handbrake) {
+            engine.vehicle.speed *= Math.exp(-delta * 5.8);
+            engine.vehicle.steering *= 1.04;
+          }
+          engine.vehicle.speed = clamp(
+            engine.vehicle.speed,
+            maxReverse,
+            maxForward,
           );
-          const nextY = clamp(
-            engine.player.y +
-              ((forward / magnitude) * forwardY + (strafe / magnitude) * rightY) * speed,
-            12,
-            MAP_HEIGHT - 12,
+          if (Math.abs(engine.vehicle.speed) < 0.35) engine.vehicle.speed = 0;
+
+          const speedRatio = clamp(Math.abs(engine.vehicle.speed) / 150, 0, 1.35);
+          const direction = engine.vehicle.speed >= 0 ? 1 : -1;
+          engine.vehicle.angle = normalizeAngle(
+            engine.vehicle.angle +
+              engine.vehicle.steering *
+                direction *
+                delta *
+                (0.42 + speedRatio * 0.92),
           );
-          if (!collidesWithBuilding(nextX, engine.player.y)) engine.player.x = nextX;
-          if (!collidesWithBuilding(engine.player.x, nextY)) engine.player.y = nextY;
-          if (engine.sprinting) engine.energy = clamp(engine.energy - delta * 1.4, 0, 100);
+          const travel = engine.vehicle.speed * delta;
+          const nextX = engine.vehicle.x + Math.cos(engine.vehicle.angle) * travel;
+          const nextY = engine.vehicle.y + Math.sin(engine.vehicle.angle) * travel;
+          const outside =
+            nextX < 22 ||
+            nextX > MAP_WIDTH - 22 ||
+            nextY < 22 ||
+            nextY > MAP_HEIGHT - 22;
+          if (outside || collidesWithBuilding(nextX, nextY)) {
+            engine.vehicle.speed *= -0.16;
+            engine.vehicle.condition = clamp(engine.vehicle.condition - 0.25, 0, 100);
+            soundRef.current?.blip("error");
+          } else {
+            engine.vehicle.x = nextX;
+            engine.vehicle.y = nextY;
+            engine.vehicle.odometer += Math.abs(travel) / 1000;
+          }
+          engine.player.x = engine.vehicle.x;
+          engine.player.y = engine.vehicle.y;
+          engine.player.angle = engine.vehicle.angle;
+          engine.moving = Math.abs(engine.vehicle.speed) > 1;
+          engine.sprinting = boosting;
+          soundRef.current?.setDriving(engine.vehicle.speed, true);
         } else {
-          engine.energy = clamp(engine.energy + delta * 0.5, 0, 100);
+          soundRef.current?.setDriving(0, false);
+          const turn =
+            (keys.has("arrowright") || keys.has("q") ? 1 : 0) -
+            (keys.has("arrowleft") ? 1 : 0);
+          engine.player.angle = normalizeAngle(engine.player.angle + turn * delta * 1.7);
+
+          const forward =
+            (keys.has("w") || keys.has("arrowup") ? 1 : 0) -
+            (keys.has("s") || keys.has("arrowdown") ? 1 : 0);
+          const strafe = (keys.has("d") ? 1 : 0) - (keys.has("a") ? 1 : 0);
+          engine.sprinting = keys.has("shift") && engine.energy > 3;
+          engine.moving = Boolean(forward || strafe);
+          if (engine.moving) {
+            const magnitude = Math.hypot(forward, strafe);
+            const speed = (engine.sprinting ? 195 : 118) * delta;
+            const forwardX = Math.cos(engine.player.angle);
+            const forwardY = Math.sin(engine.player.angle);
+            const rightX = -forwardY;
+            const rightY = forwardX;
+            const nextX = clamp(
+              engine.player.x +
+                ((forward / magnitude) * forwardX + (strafe / magnitude) * rightX) * speed,
+              12,
+              MAP_WIDTH - 12,
+            );
+            const nextY = clamp(
+              engine.player.y +
+                ((forward / magnitude) * forwardY + (strafe / magnitude) * rightY) * speed,
+              12,
+              MAP_HEIGHT - 12,
+            );
+            if (!collidesWithBuilding(nextX, engine.player.y)) engine.player.x = nextX;
+            if (!collidesWithBuilding(engine.player.x, nextY)) engine.player.y = nextY;
+            if (engine.sprinting) engine.energy = clamp(engine.energy - delta * 1.4, 0, 100);
+          } else {
+            engine.energy = clamp(engine.energy + delta * 0.5, 0, 100);
+          }
         }
 
         engine.simMinutes += delta * 3 * engine.speed;
@@ -1572,6 +1720,12 @@ export default function RhoosLiveCity() {
     (id) => !engine.disabledHooks.includes(id),
   ).length;
   const nearSelected = distanceToRect(engine.player.x, engine.player.y, selected) < 105;
+  const distanceToVehicle = Math.hypot(
+    engine.player.x - engine.vehicle.x,
+    engine.player.y - engine.vehicle.y,
+  );
+  const nearVehicle = !engine.vehicle.inCar && distanceToVehicle < 82;
+  const speedMph = Math.round(Math.abs(engine.vehicle.speed) * 0.22);
 
   function updateProfile<K extends keyof CharacterProfile>(
     key: K,
@@ -1957,7 +2111,9 @@ export default function RhoosLiveCity() {
         <aside className="live-objective">
           <span className="panel-label">CURRENT DIRECTIVE</span>
           <strong>
-            {activeJob
+            {engine.vehicle.inCar
+              ? "FREE DRIVE / NEO-MANHATTAN"
+              : activeJob
               ? engine.activeJob?.working
                 ? `WORKING: ${activeJob.title}`
                 : `REPORT TO ${BUILDINGS.find((building) => building.id === activeJob.buildingId)?.shortName}`
@@ -1966,7 +2122,9 @@ export default function RhoosLiveCity() {
                 : "FIND WORK. EARN. OWN."}
           </strong>
           <p>
-            {activeJob
+            {engine.vehicle.inCar
+              ? "Cruise the avenues, follow traffic, use Space to handbrake, and press E to exit when stopped."
+              : activeJob
               ? engine.activeJob?.working
                 ? "Stay connected while the shift verifies."
                 : "Follow the city map, face the building, press E."
@@ -2028,11 +2186,12 @@ export default function RhoosLiveCity() {
         </nav>
 
         <div className="live-controls">
-          <span>WASD MOVE</span>
-          <span>MOUSE / ← → LOOK</span>
-          <span>SHIFT SPRINT</span>
-          <span>E INTERACT</span>
-          <span>ESC RELEASE</span>
+          <span>{engine.vehicle.inCar ? "W/S THROTTLE + BRAKE" : "WASD MOVE"}</span>
+          <span>{engine.vehicle.inCar ? "A/D STEER" : "MOUSE / ← → LOOK"}</span>
+          <span>{engine.vehicle.inCar ? "SHIFT BOOST" : "SHIFT SPRINT"}</span>
+          <span>{engine.vehicle.inCar ? "SPACE HANDBRAKE" : "E INTERACT"}</span>
+          <span>{engine.vehicle.inCar ? "E EXIT WHEN STOPPED" : "ESC RELEASE"}</span>
+          {engine.vehicle.inCar && <span>R RECOVER CAR</span>}
         </div>
 
         <div className="mobile-drive" aria-label="Mobile movement controls">
@@ -2079,14 +2238,51 @@ export default function RhoosLiveCity() {
           >
             ▼
           </button>
+          {engine.vehicle.inCar && (
+            <button
+              className="handbrake"
+              onPointerDown={() => pressControl(" ", true)}
+              onPointerUp={() => pressControl(" ", false)}
+              onPointerLeave={() => pressControl(" ", false)}
+            >
+              BRAKE
+            </button>
+          )}
         </div>
 
-        {focused && !panel && (
+        {nearVehicle && !panel && (
+          <div className="target-card vehicle-target">
+            <span>PERSONAL VEHICLE / {Math.round(distanceToVehicle)}m</span>
+            <strong>RHO-86 STREET COUPE</strong>
+            <p>Press E to enter. Smooth steering, boost, handbrake, chase camera, and live engine audio.</p>
+          </div>
+        )}
+
+        {focused && !panel && !nearVehicle && !engine.vehicle.inCar && (
           <div className="target-card" style={{ "--target-accent": focused.building.accent } as React.CSSProperties}>
             <span>{focused.building.kind.toUpperCase()} / {Math.round(focused.distance)}m</span>
             <strong>{focused.building.name}</strong>
             <p>{focused.building.description}</p>
           </div>
+        )}
+
+        {engine.vehicle.inCar && (
+          <aside className="driving-hud" aria-label="Driving telemetry">
+            <div className="speed-dial">
+              <span>{engine.vehicle.speed < -1 ? "R" : engine.vehicle.speed > 1 ? "D" : "N"}</span>
+              <strong>{speedMph}</strong>
+              <small>MPH</small>
+              <i style={{ transform: `rotate(${Math.min(228, speedMph * 3.2) - 114}deg)` }} />
+            </div>
+            <div className="drive-data">
+              <span>RHO-86 / STREET MODE</span>
+              <strong>{engine.sprinting ? "BOOST ACTIVE" : "SMOOTH DRIVE"}</strong>
+              <div>
+                <b>COND {engine.vehicle.condition.toFixed(0)}%</b>
+                <b>{engine.vehicle.odometer.toFixed(1)} KM</b>
+              </div>
+            </div>
+          </aside>
         )}
 
         {panel && (
@@ -2780,22 +2976,22 @@ export default function RhoosLiveCity() {
             </div>
             <div className="intro-brief">
               <span className="panel-label">DISTRICT ONE / 06:52</span>
-              <h1>Play a card.<br />Build a life.</h1>
+              <h1>Drive the city.<br />Build a life.</h1>
               <p>
                 Equip an NFT character or use a free city origin. Build a work
-                deck, play job encounters, grow a career, own businesses, and
-                program the economy.
+                deck, enter your RHO-86 street coupe, cruise the avenues, play
+                job encounters, grow a career, and own businesses.
               </p>
               <div className="intro-keys">
                 <div><kbd>WASD</kbd><span>MOVE</span></div>
                 <div><kbd>MOUSE</kbd><span>LOOK</span></div>
-                <div><kbd>E</kbd><span>INTERACT</span></div>
+                <div><kbd>E</kbd><span>ENTER CAR</span></div>
                 <div><kbd>C</kbd><span>CARDS</span></div>
               </div>
               <button onClick={() => void enterCity()}>
                 ENTER 3D CITY + MUSIC <b>→</b>
               </button>
-              <small>NFT CHARACTER + WORK TCG + CITY ECONOMY / VERSION 0.5</small>
+              <small>DRIVING + NFT CHARACTER + WORK TCG + CITY ECONOMY / VERSION 0.6</small>
             </div>
           </div>
         )}

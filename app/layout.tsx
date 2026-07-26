@@ -5,11 +5,11 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://rhoos-city-district-one.meta5555.chatgpt.site"),
   title: "RHOOS CITY — NFT Work TCG",
   description:
-    "Equip an NFT character or free city origin, build a unique live card deck, work New York-style corporate jobs, rise to boss, and program the economy.",
+    "Drive a street coupe through a living New York-style city, equip an NFT character, build a unique card deck, work corporate jobs, and rise to boss.",
   openGraph: {
     title: "RHOOS CITY — NFT Work TCG",
     description:
-      "A first-person living-city TCG with unique cards, verified NFT characters, corporate careers, playable work, and HookTech.",
+      "A fluid driving and first-person living-city TCG with unique cards, NFT characters, corporate careers, playable work, and HookTech.",
     images: [
       {
         url: "/og.png",
@@ -23,7 +23,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "RHOOS CITY — NFT Work TCG",
     description:
-      "Build a live work deck, rise from intern to boss, and build an economic life.",
+      "Drive the city, build a live work deck, rise from intern to boss, and build an economic life.",
     images: ["/og.png"],
   },
   icons: {
