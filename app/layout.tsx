@@ -3,25 +3,25 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://rhoos-city-district-one.meta5555.chatgpt.site"),
-  title: "RHOOS CITY — NFT Work TCG",
+  title: "RHOOS CITY — Third-Person Work RPG",
   description:
-    "Drive a street coupe through a living New York-style city, equip an NFT character, build a unique card deck, work corporate jobs, and rise to boss.",
+    "Explore a living city with simple N64-inspired third-person controls, drive a street coupe, build a unique card deck, work corporate jobs, and rise to boss.",
   openGraph: {
-    title: "RHOOS CITY — NFT Work TCG",
+    title: "RHOOS CITY — Move. Drive. Work. Collect.",
     description:
-      "A fluid driving and first-person living-city TCG with unique cards, NFT characters, corporate careers, playable work, and HookTech.",
+      "An accessible third-person living-city RPG with fluid driving, unique cards, NFT characters, corporate careers, and playable work.",
     images: [
       {
         url: "/og.png",
         width: 1536,
         height: 1024,
-        alt: "RHOOS CITY NFT Work TCG in a neon New York-style city",
+        alt: "RHOOS CITY third-person character and driving game in a neon city",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "RHOOS CITY — NFT Work TCG",
+    title: "RHOOS CITY — Move. Drive. Work. Collect.",
     description:
       "Drive the city, build a live work deck, rise from intern to boss, and build an economic life.",
     images: ["/og.png"],

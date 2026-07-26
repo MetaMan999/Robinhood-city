@@ -233,7 +233,15 @@ function initialCardInstances() {
 }
 
 type Engine = {
-  player: { x: number; y: number; angle: number; pitch: number };
+  player: {
+    x: number;
+    y: number;
+    angle: number;
+    pitch: number;
+    facing: number;
+    velocityX: number;
+    velocityY: number;
+  };
   vehicle: {
     x: number;
     y: number;
@@ -298,7 +306,15 @@ function initialEngine(): Engine {
   return {
     // Start looking east along Central Loop instead of directly into City Hall.
     // This gives the first frame a long city vista, visible traffic, and depth.
-    player: { x: 970, y: 944, angle: 0, pitch: -0.03 },
+    player: {
+      x: 970,
+      y: 944,
+      angle: 0,
+      pitch: -0.03,
+      facing: 0,
+      velocityX: 0,
+      velocityY: 0,
+    },
     vehicle: {
       x: 1050,
       y: 950,
@@ -405,6 +421,10 @@ function normalizeAngle(angle: number) {
   while (angle > Math.PI) angle -= TAU;
   while (angle < -Math.PI) angle += TAU;
   return angle;
+}
+
+function dampAngle(current: number, target: number, amount: number) {
+  return normalizeAngle(current + normalizeAngle(target - current) * amount);
 }
 
 function formatMoney(value: number) {
@@ -1195,6 +1215,7 @@ export default function RhoosLiveCity() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const engineRef = useRef<Engine>(initialEngine());
   const keysRef = useRef<Set<string>>(new Set());
+  const gamepadActionRef = useRef(false);
   const frameRef = useRef<number | null>(null);
   const threeRef = useRef<RhoosThreeEngine | null>(null);
   const soundRef = useRef<RhoosSoundEngine | null>(null);
@@ -1307,7 +1328,10 @@ export default function RhoosLiveCity() {
         MAP_HEIGHT - 12,
       );
       engine.player.angle = engine.vehicle.angle;
+      engine.player.facing = engine.vehicle.angle;
       engine.player.pitch = -0.03;
+      engine.player.velocityX = 0;
+      engine.player.velocityY = 0;
       engine.moving = false;
       soundRef.current?.setDriving(0, false);
       soundRef.current?.blip("interact");
@@ -1324,7 +1348,10 @@ export default function RhoosLiveCity() {
       engine.player.x = engine.vehicle.x;
       engine.player.y = engine.vehicle.y;
       engine.player.angle = engine.vehicle.angle;
+      engine.player.facing = engine.vehicle.angle;
       engine.player.pitch = -0.08;
+      engine.player.velocityX = 0;
+      engine.player.velocityY = 0;
       engine.moving = false;
       setPanel(null);
       soundRef.current?.blip("reward");
@@ -1539,15 +1566,32 @@ export default function RhoosLiveCity() {
 
       if (!engine.paused && !introOpen) {
         const keys = keysRef.current;
+        const gamepad = navigator.getGamepads?.()[0] ?? null;
+        const deadzone = (value: number | undefined) =>
+          Math.abs(value ?? 0) > 0.16 ? value ?? 0 : 0;
+        const gamepadAction = Boolean(gamepad?.buttons[0]?.pressed);
+        if (gamepadAction && !gamepadActionRef.current) interact();
+        gamepadActionRef.current = gamepadAction;
         if (engine.vehicle.inCar) {
-          const throttle =
+          const throttle = clamp(
             (keys.has("w") || keys.has("arrowup") ? 1 : 0) -
-            (keys.has("s") || keys.has("arrowdown") ? 1 : 0);
-          const steerInput =
+              (keys.has("s") || keys.has("arrowdown") ? 1 : 0) +
+              (gamepad?.buttons[7]?.value ?? 0) -
+              (gamepad?.buttons[6]?.value ?? 0),
+            -1,
+            1,
+          );
+          const steerInput = clamp(
             (keys.has("d") || keys.has("arrowright") ? 1 : 0) -
-            (keys.has("a") || keys.has("arrowleft") ? 1 : 0);
-          const boosting = keys.has("shift") && throttle > 0;
-          const handbrake = keys.has(" ");
+              (keys.has("a") || keys.has("arrowleft") ? 1 : 0) +
+              deadzone(gamepad?.axes[0]),
+            -1,
+            1,
+          );
+          const boosting =
+            (keys.has("shift") || Boolean(gamepad?.buttons[5]?.pressed)) &&
+            throttle > 0;
+          const handbrake = keys.has(" ") || Boolean(gamepad?.buttons[1]?.pressed);
           const maxForward = boosting ? 390 : 315;
           const maxReverse = -105;
           const acceleration = boosting ? 185 : 132;
@@ -1603,6 +1647,7 @@ export default function RhoosLiveCity() {
           engine.player.x = engine.vehicle.x;
           engine.player.y = engine.vehicle.y;
           engine.player.angle = engine.vehicle.angle;
+          engine.player.facing = engine.vehicle.angle;
           engine.moving = Math.abs(engine.vehicle.speed) > 1;
           engine.sprinting = boosting;
           soundRef.current?.setDriving(engine.vehicle.speed, true);
@@ -1611,37 +1656,74 @@ export default function RhoosLiveCity() {
           const turn =
             (keys.has("arrowright") || keys.has("q") ? 1 : 0) -
             (keys.has("arrowleft") ? 1 : 0);
-          engine.player.angle = normalizeAngle(engine.player.angle + turn * delta * 1.7);
+          const cameraTurn = turn + deadzone(gamepad?.axes[2]) * 1.4;
+          engine.player.angle = normalizeAngle(
+            engine.player.angle + cameraTurn * delta * 1.8,
+          );
 
-          const forward =
+          const forward = clamp(
             (keys.has("w") || keys.has("arrowup") ? 1 : 0) -
-            (keys.has("s") || keys.has("arrowdown") ? 1 : 0);
-          const strafe = (keys.has("d") ? 1 : 0) - (keys.has("a") ? 1 : 0);
+              (keys.has("s") || keys.has("arrowdown") ? 1 : 0) -
+              deadzone(gamepad?.axes[1]),
+            -1,
+            1,
+          );
+          const strafe = clamp(
+            (keys.has("d") ? 1 : 0) -
+              (keys.has("a") ? 1 : 0) +
+              deadzone(gamepad?.axes[0]),
+            -1,
+            1,
+          );
           engine.sprinting = keys.has("shift") && engine.energy > 3;
           engine.moving = Boolean(forward || strafe);
           if (engine.moving) {
-            const magnitude = Math.hypot(forward, strafe);
-            const speed = (engine.sprinting ? 195 : 118) * delta;
+            const magnitude = Math.max(1, Math.hypot(forward, strafe));
+            const speed = engine.sprinting ? 195 : 118;
             const forwardX = Math.cos(engine.player.angle);
             const forwardY = Math.sin(engine.player.angle);
             const rightX = -forwardY;
             const rightY = forwardX;
+            const targetVelocityX =
+              ((forward / magnitude) * forwardX + (strafe / magnitude) * rightX) *
+              speed;
+            const targetVelocityY =
+              ((forward / magnitude) * forwardY + (strafe / magnitude) * rightY) *
+              speed;
+            const responsiveness = 1 - Math.exp(-delta * 11);
+            engine.player.velocityX +=
+              (targetVelocityX - engine.player.velocityX) * responsiveness;
+            engine.player.velocityY +=
+              (targetVelocityY - engine.player.velocityY) * responsiveness;
             const nextX = clamp(
-              engine.player.x +
-                ((forward / magnitude) * forwardX + (strafe / magnitude) * rightX) * speed,
+              engine.player.x + engine.player.velocityX * delta,
               12,
               MAP_WIDTH - 12,
             );
             const nextY = clamp(
-              engine.player.y +
-                ((forward / magnitude) * forwardY + (strafe / magnitude) * rightY) * speed,
+              engine.player.y + engine.player.velocityY * delta,
               12,
               MAP_HEIGHT - 12,
             );
-            if (!collidesWithBuilding(nextX, engine.player.y)) engine.player.x = nextX;
-            if (!collidesWithBuilding(engine.player.x, nextY)) engine.player.y = nextY;
+            if (!collidesWithBuilding(nextX, engine.player.y)) {
+              engine.player.x = nextX;
+            } else {
+              engine.player.velocityX = 0;
+            }
+            if (!collidesWithBuilding(engine.player.x, nextY)) {
+              engine.player.y = nextY;
+            } else {
+              engine.player.velocityY = 0;
+            }
+            engine.player.facing = dampAngle(
+              engine.player.facing,
+              Math.atan2(engine.player.velocityY, engine.player.velocityX),
+              1 - Math.exp(-delta * 14),
+            );
             if (engine.sprinting) engine.energy = clamp(engine.energy - delta * 1.4, 0, 100);
           } else {
+            engine.player.velocityX *= Math.exp(-delta * 12);
+            engine.player.velocityY *= Math.exp(-delta * 12);
             engine.energy = clamp(engine.energy + delta * 0.5, 0, 100);
           }
         }
@@ -1692,7 +1774,7 @@ export default function RhoosLiveCity() {
       threeEngine?.dispose();
       if (threeRef.current === threeEngine) threeRef.current = null;
     };
-  }, [completeJob, introOpen, refresh]);
+  }, [completeJob, interact, introOpen, refresh]);
 
   const engine = engineRef.current;
   void revision;
@@ -2056,7 +2138,7 @@ export default function RhoosLiveCity() {
           height={VIEW_H}
           onClick={canvasClick}
           tabIndex={0}
-          aria-label="First-person view of Rhoos City. Use WASD to move, arrow keys or the mouse to look, and E to interact."
+          aria-label="Third-person view of Rhoos City. Use WASD to move relative to the camera, arrow keys or the right gamepad stick to orbit, and E or gamepad A to interact."
         />
         <div className="crt-layer" aria-hidden="true" />
 
@@ -2186,13 +2268,21 @@ export default function RhoosLiveCity() {
         </nav>
 
         <div className="live-controls">
-          <span>{engine.vehicle.inCar ? "W/S THROTTLE + BRAKE" : "WASD MOVE"}</span>
-          <span>{engine.vehicle.inCar ? "A/D STEER" : "MOUSE / ← → LOOK"}</span>
+          <span>{engine.vehicle.inCar ? "W/S THROTTLE + BRAKE" : "WASD CAMERA-RELATIVE MOVE"}</span>
+          <span>{engine.vehicle.inCar ? "A/D STEER" : "← → ORBIT CAMERA"}</span>
           <span>{engine.vehicle.inCar ? "SHIFT BOOST" : "SHIFT SPRINT"}</span>
-          <span>{engine.vehicle.inCar ? "SPACE HANDBRAKE" : "E INTERACT"}</span>
+          <span>{engine.vehicle.inCar ? "SPACE HANDBRAKE" : "E / GAMEPAD A ACTION"}</span>
           <span>{engine.vehicle.inCar ? "E EXIT WHEN STOPPED" : "ESC RELEASE"}</span>
           {engine.vehicle.inCar && <span>R RECOVER CAR</span>}
         </div>
+
+        {!engine.vehicle.inCar && (
+          <div className="controller-mode">
+            <span>CONTROL MODE</span>
+            <strong>THIRD-PERSON 64</strong>
+            <small>CAMERA-RELATIVE / GAMEPAD READY</small>
+          </div>
+        )}
 
         <div className="mobile-drive" aria-label="Mobile movement controls">
           <button
@@ -2976,22 +3066,22 @@ export default function RhoosLiveCity() {
             </div>
             <div className="intro-brief">
               <span className="panel-label">DISTRICT ONE / 06:52</span>
-              <h1>Drive the city.<br />Build a life.</h1>
+              <h1>Move freely.<br />Build a life.</h1>
               <p>
-                Equip an NFT character or use a free city origin. Build a work
-                deck, enter your RHO-86 street coupe, cruise the avenues, play
-                job encounters, grow a career, and own businesses.
+                Explore with a simple N64-inspired third-person controller,
+                enter your RHO-86 street coupe, build a work deck, play job
+                encounters, grow a career, and own businesses.
               </p>
               <div className="intro-keys">
                 <div><kbd>WASD</kbd><span>MOVE</span></div>
-                <div><kbd>MOUSE</kbd><span>LOOK</span></div>
+                <div><kbd>ARROWS</kbd><span>CAMERA</span></div>
                 <div><kbd>E</kbd><span>ENTER CAR</span></div>
                 <div><kbd>C</kbd><span>CARDS</span></div>
               </div>
               <button onClick={() => void enterCity()}>
                 ENTER 3D CITY + MUSIC <b>→</b>
               </button>
-              <small>DRIVING + NFT CHARACTER + WORK TCG + CITY ECONOMY / VERSION 0.6</small>
+              <small>THIRD-PERSON 64 + DRIVING + WORK TCG + CITY ECONOMY / VERSION 0.7</small>
             </div>
           </div>
         )}

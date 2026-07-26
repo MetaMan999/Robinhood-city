@@ -1,13 +1,14 @@
 # RHOOS CITY — NFT Work TCG
 
-RHOOS CITY is a playable driving, first-person living-city trading card game.
+RHOOS CITY is a playable driving, third-person living-city trading card game.
 Explore a neon New York-inspired district on foot or in the RHO-86 street
 coupe, use a free origin character or verify an ERC-721 character NFT, build a
 work deck, win corporate job encounters, rise from intern to District Boss,
 own businesses, and automate the economy with HookTech.
 
-Version 0.6 adds a complete enter/exit driving loop, smooth vehicle physics,
-chase camera, engine audio, boost, handbrake, damage, and mobile controls.
+Version 0.7 replaces the harder first-person navigation with an accessible
+N64-inspired third-person controller, visible animated player, camera-relative
+movement, smooth follow camera, and native gamepad input.
 
 ## Run locally
 
@@ -23,10 +24,13 @@ Open the local address printed by the development server.
 ## Controls
 
 - `WASD`: move and strafe
-- Mouse: look around after clicking the game
-- Arrow keys: look and move
+- Arrow keys: orbit the follow camera
 - `Shift`: sprint
 - `E` or `F`: interact, enter the nearby RHO-86, or exit when stopped
+- Gamepad left stick: camera-relative movement or vehicle steering
+- Gamepad right stick: orbit the third-person camera
+- Gamepad `A`: interact; right/left triggers: drive and brake; `B`: handbrake;
+  right bumper: boost
 - Driving `W/S`: accelerate, brake, and reverse
 - Driving `A/D`: steer
 - Driving `Shift`: boost
@@ -69,6 +73,16 @@ Open the local address printed by the development server.
 - Modeled bodywork, glass, grille, lights, wheels, rims, and nighttime headlamps
 - Procedural engine tone that responds continuously to vehicle speed
 - Touch throttle, steering, reverse, handbrake, and exit controls
+
+## Third-person control systems
+
+- Visible player character with saved skin, jacket, and tech colors
+- Animated walking, running, limbs, shadow, badge, and direction changes
+- Camera-relative WASD movement: forward always follows the visible camera
+- Smooth acceleration and deceleration instead of abrupt grid-like movement
+- Soft character turning that follows the movement direction
+- N64-style elevated follow camera with smoothing and sprint zoom
+- Keyboard, touch, and standard browser gamepad support
 
 Prototype company names are used as text-only roleplay workplaces. The game is
 not affiliated with, endorsed by, or sponsored by those companies or S&P Dow

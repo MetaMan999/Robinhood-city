@@ -22,14 +22,14 @@ test("server-renders the NFT work TCG shell", async () => {
   const html = await response.text();
   assert.match(
     html,
-    /<title>RHOOS CITY — NFT Work TCG<\/title>/i,
+    /<title>RHOOS CITY — Third-Person Work RPG<\/title>/i,
   );
   assert.match(html, /NFT WORK TCG \/ LIVING CITY ENGINE/);
-  assert.match(html, /Drive the city\./);
+  assert.match(html, /Move freely\./);
   assert.match(html, /Build a life\./);
   assert.match(html, /HOOKTECH CARD PROTOCOL/);
   assert.match(html, /ENTER 3D CITY \+ MUSIC/);
-  assert.match(html, /DRIVING \+ NFT CHARACTER \+ WORK TCG \+ CITY ECONOMY/);
+  assert.match(html, /THIRD-PERSON 64 \+ DRIVING \+ WORK TCG \+ CITY ECONOMY/);
   assert.match(html, /og\.png/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton|Starter Project/i);
 });
@@ -54,6 +54,8 @@ test("keeps the NFT, unique card, corporate, WebGL, soundtrack, and HookTech eng
   assert.match(game, /RHO-86/);
   assert.match(game, /handbrake/);
   assert.match(game, /vehicle\.odometer/);
+  assert.match(game, /navigator\.getGamepads/);
+  assert.match(game, /dampAngle/);
   assert.match(game, /CAREER_TRACKS/);
   assert.match(game, /defaultProfile/);
   assert.match(game, /NFT CHARACTER \/ WORK TCG/);
@@ -66,6 +68,8 @@ test("keeps the NFT, unique card, corporate, WebGL, soundtrack, and HookTech eng
   assert.match(threeEngine, /function makeCar/);
   assert.match(threeEngine, /chasePosition/);
   assert.match(threeEngine, /SpotLight/);
+  assert.match(threeEngine, /makePlayerCharacter/);
+  assert.match(threeEngine, /followPosition/);
   assert.match(threeEngine, /function makeNpc/);
   assert.match(threeEngine, /firstPersonRig/);
   assert.match(soundEngine, /AudioContext/);
@@ -82,7 +86,7 @@ test("keeps the NFT, unique card, corporate, WebGL, soundtrack, and HookTech eng
   assert.match(wallet, /eth_requestAccounts/);
   assert.match(wallet, /0x6352211e/);
   assert.doesNotMatch(wallet, /eth_sendTransaction|wallet_sendCalls/);
-  assert.match(layout, /NFT Work TCG/);
+  assert.match(layout, /Third-Person Work RPG/);
   assert.match(layout, /summary_large_image/);
   assert.match(packageJson, /"name": "rhoos-city"/);
 });

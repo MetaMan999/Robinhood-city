@@ -453,6 +453,39 @@ canvas:focus-visible {
   letter-spacing: 0.08em;
 }
 
+.controller-mode {
+  position: absolute;
+  z-index: 20;
+  right: 18px;
+  top: 82px;
+  min-width: 188px;
+  padding: 10px 12px;
+  border: 1px solid rgba(101, 214, 166, 0.55);
+  border-right: 4px solid var(--green);
+  background: rgba(8, 11, 19, 0.78);
+  backdrop-filter: blur(6px);
+  text-align: right;
+}
+
+.controller-mode span,
+.controller-mode strong,
+.controller-mode small {
+  display: block;
+}
+
+.controller-mode span,
+.controller-mode small {
+  color: var(--muted);
+  font-size: 6px;
+  letter-spacing: 0.1em;
+}
+
+.controller-mode strong {
+  margin: 4px 0;
+  color: var(--green);
+  font-size: 11px;
+}
+
 .target-card {
   --target-accent: var(--cyan);
   position: absolute;
@@ -2149,7 +2182,8 @@ kbd {
   }
 
   .city-telemetry,
-  .live-controls {
+  .live-controls,
+  .controller-mode {
     display: none;
   }
 

@@ -15,7 +15,15 @@ import {
 } from "./game-data";
 
 export type Rhoos3DState = {
-  player: { x: number; y: number; angle: number; pitch: number };
+  player: {
+    x: number;
+    y: number;
+    angle: number;
+    pitch: number;
+    facing: number;
+    velocityX: number;
+    velocityY: number;
+  };
   vehicle: {
     x: number;
     y: number;
@@ -48,6 +56,12 @@ type AnimatedNpc = {
   rightLeg: THREE.Mesh;
   leftArm: THREE.Mesh;
   rightArm: THREE.Mesh;
+};
+
+type PlayerCharacter = AnimatedNpc & {
+  skin: THREE.MeshStandardMaterial;
+  jacket: THREE.MeshStandardMaterial;
+  accent: THREE.MeshStandardMaterial;
 };
 
 type TrafficSignal = {
@@ -461,6 +475,101 @@ function makeNpc(index: number): AnimatedNpc {
   return { group, index, leftLeg, rightLeg, leftArm, rightArm };
 }
 
+function makePlayerCharacter(): PlayerCharacter {
+  const group = new THREE.Group();
+  const jacket = new THREE.MeshStandardMaterial({
+    color: 0x263c58,
+    roughness: 0.62,
+    metalness: 0.16,
+  });
+  const skin = new THREE.MeshStandardMaterial({
+    color: 0xdca078,
+    roughness: 0.78,
+  });
+  const accent = new THREE.MeshStandardMaterial({
+    color: 0x67d7e5,
+    emissive: 0x67d7e5,
+    emissiveIntensity: 0.78,
+    roughness: 0.38,
+  });
+  const trousers = new THREE.MeshStandardMaterial({
+    color: 0x1b2230,
+    roughness: 0.82,
+  });
+  const hair = new THREE.MeshStandardMaterial({
+    color: 0x171822,
+    roughness: 0.88,
+  });
+
+  const torso = new THREE.Mesh(new THREE.CapsuleGeometry(4.4, 10, 6, 10), jacket);
+  torso.position.y = 16;
+  torso.castShadow = true;
+  group.add(torso);
+
+  const belt = new THREE.Mesh(new THREE.BoxGeometry(8.5, 1.7, 6), accent);
+  belt.position.y = 10.5;
+  group.add(belt);
+
+  const head = new THREE.Mesh(new THREE.SphereGeometry(3.8, 16, 12), skin);
+  head.position.y = 27.5;
+  head.castShadow = true;
+  group.add(head);
+
+  const hairMesh = new THREE.Mesh(
+    new THREE.SphereGeometry(3.95, 14, 7, 0, Math.PI * 2, 0, Math.PI / 2),
+    hair,
+  );
+  hairMesh.position.y = 29;
+  group.add(hairMesh);
+
+  const badge = new THREE.Mesh(new THREE.BoxGeometry(2.4, 2.4, 0.65), accent);
+  badge.position.set(2.2, 18.5, 4.15);
+  badge.rotation.z = Math.PI / 4;
+  group.add(badge);
+
+  const legGeometry = new THREE.CapsuleGeometry(1.45, 9, 5, 8);
+  const leftLeg = new THREE.Mesh(legGeometry, trousers);
+  const rightLeg = new THREE.Mesh(legGeometry, trousers);
+  leftLeg.position.set(-2.25, 5.2, 0);
+  rightLeg.position.set(2.25, 5.2, 0);
+  leftLeg.castShadow = true;
+  rightLeg.castShadow = true;
+
+  const armGeometry = new THREE.CapsuleGeometry(1.25, 8.5, 5, 8);
+  const leftArm = new THREE.Mesh(armGeometry, jacket);
+  const rightArm = new THREE.Mesh(armGeometry, jacket);
+  leftArm.position.set(-5.2, 16, 0);
+  rightArm.position.set(5.2, 16, 0);
+  leftArm.castShadow = true;
+  rightArm.castShadow = true;
+  group.add(leftLeg, rightLeg, leftArm, rightArm);
+
+  const shadow = new THREE.Mesh(
+    new THREE.CircleGeometry(7.5, 18),
+    new THREE.MeshBasicMaterial({
+      color: 0x000000,
+      transparent: true,
+      opacity: 0.32,
+      depthWrite: false,
+    }),
+  );
+  shadow.rotation.x = -Math.PI / 2;
+  shadow.position.y = 0.15;
+  group.add(shadow);
+
+  return {
+    group,
+    index: -1,
+    leftLeg,
+    rightLeg,
+    leftArm,
+    rightArm,
+    skin,
+    jacket,
+    accent,
+  };
+}
+
 function makeStreetLight() {
   const group = new THREE.Group();
   const metal = new THREE.MeshStandardMaterial({
@@ -816,6 +925,10 @@ export function createRhoosThreeEngine(canvas: HTMLCanvasElement): RhoosThreeEng
     scene.add(npc.group);
     npcs.push(npc);
   }
+  const playerCharacter = makePlayerCharacter();
+  scene.add(playerCharacter.group);
+  const followPosition = new THREE.Vector3();
+  let followReady = false;
 
   const hookMaterial = new THREE.LineBasicMaterial({
     color: color.cyan,
@@ -901,7 +1014,22 @@ export function createRhoosThreeEngine(canvas: HTMLCanvasElement): RhoosThreeEng
     handMaterial.color.set(state.profile.skin);
     wristMaterial.color.set(state.profile.accent);
     wristMaterial.emissive.set(state.profile.accent);
-    firstPersonRig.visible = !state.vehicle.inCar;
+    firstPersonRig.visible = false;
+    playerCharacter.jacket.color.set(state.profile.jacket);
+    playerCharacter.skin.color.set(state.profile.skin);
+    playerCharacter.accent.color.set(state.profile.accent);
+    playerCharacter.accent.emissive.set(state.profile.accent);
+    playerCharacter.group.visible = !state.vehicle.inCar;
+    playerCharacter.group.position.set(state.player.x, 0, state.player.y);
+    playerCharacter.group.rotation.y = Math.PI / 2 - state.player.facing;
+    const playerWalk = state.moving
+      ? Math.sin(state.elapsed * (state.sprinting ? 12 : 8)) *
+        (state.sprinting ? 0.8 : 0.56)
+      : 0;
+    playerCharacter.leftLeg.rotation.x = playerWalk;
+    playerCharacter.rightLeg.rotation.x = -playerWalk;
+    playerCharacter.leftArm.rotation.x = -playerWalk * 0.72;
+    playerCharacter.rightArm.rotation.x = playerWalk * 0.72;
 
     playerCar.group.position.set(state.vehicle.x, 0, state.vehicle.y);
     playerCar.group.rotation.y = -state.vehicle.angle;
@@ -909,6 +1037,7 @@ export function createRhoosThreeEngine(canvas: HTMLCanvasElement): RhoosThreeEng
     for (const wheel of playerCar.wheels) wheel.rotation.z -= wheelSpeed;
 
     if (state.vehicle.inCar) {
+      followReady = false;
       const speedRatio = THREE.MathUtils.clamp(Math.abs(state.vehicle.speed) / 390, 0, 1);
       const chaseDistance = 54 + speedRatio * 24;
       const desired = new THREE.Vector3(
@@ -933,14 +1062,25 @@ export function createRhoosThreeEngine(canvas: HTMLCanvasElement): RhoosThreeEng
       camera.updateProjectionMatrix();
     } else {
       chaseReady = false;
-      camera.position.set(state.player.x, 42 + bob, state.player.y);
-      camera.rotation.y = -state.player.angle - Math.PI / 2;
-      camera.rotation.x = state.player.pitch;
-      camera.fov += (72 - camera.fov) * Math.min(1, delta * 5);
+      const followDistance = state.sprinting ? 72 : 64;
+      const desired = new THREE.Vector3(
+        state.player.x - Math.cos(state.player.angle) * followDistance,
+        44 + state.player.pitch * 24 + bob * 0.15,
+        state.player.y - Math.sin(state.player.angle) * followDistance,
+      );
+      if (!followReady) {
+        followPosition.copy(desired);
+        followReady = true;
+      }
+      followPosition.lerp(desired, 1 - Math.exp(-delta * 8.5));
+      camera.position.copy(followPosition);
+      camera.lookAt(
+        state.player.x + Math.cos(state.player.angle) * 8,
+        18,
+        state.player.y + Math.sin(state.player.angle) * 8,
+      );
+      camera.fov += ((state.sprinting ? 76 : 70) - camera.fov) * Math.min(1, delta * 5);
       camera.updateProjectionMatrix();
-      firstPersonRig.position.y = state.moving
-        ? Math.sin(state.elapsed * (state.sprinting ? 13 : 9)) * 0.025
-        : 0;
     }
 
     for (const car of cars) {
