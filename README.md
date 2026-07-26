@@ -1,8 +1,10 @@
-# RHOOS CITY — Real 3D Economic RPG
+# RHOOS CITY — Player & Career Engine
 
 RHOOS CITY is a playable first-person economic RPG rendered in real-time 3D,
 with an original procedural soundtrack and a live programmable operations layer
-called HookTech.
+called HookTech. The v0.4 player engine adds persistent character customization,
+career tracks, profession bonuses, experience levels, work streaks, and lifetime
+earnings.
 
 Walk the streets of District One, follow traffic and citizens, take verified
 jobs, earn wages, purchase businesses, and install hooks that react to the
@@ -28,6 +30,7 @@ Open the local address printed by the development server.
 - `E` or `F`: interact with a nearby building
 - `Space`: hit the timing window during work shifts
 - `J`: city jobs channel
+- `P`: character and career engine
 - `H`: HookTech matrix
 - `M`: district map
 - `Space`: pause when no work console is open
@@ -47,6 +50,12 @@ Touch controls appear automatically on narrow screens.
 - Ore → steel → electronics → freight → retail production chain
 - Eighteen verified city jobs with wages, reputation, and business output
 - Timing-based work console that turns every shift into a skill challenge
+- Character studio with editable name, call sign, skin, hair, jacket, and
+  wearable tech colors
+- Five switchable career tracks with matched job recommendations, wage bonuses,
+  experience, titles, levels, work streaks, and lifetime earnings
+- First-person hands and clothing that update with the saved character
+- Contract management for accepting, routing to, working, and releasing jobs
 - Original generative city soundtrack with melody, bass, percussion, ambience,
   interaction sounds, mute, and volume controls
 - Property ownership, dividends, upgrades, and automatic local saving

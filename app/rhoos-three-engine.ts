@@ -16,6 +16,7 @@ import {
 
 export type Rhoos3DState = {
   player: { x: number; y: number; angle: number; pitch: number };
+  profile: { skin: string; jacket: string; accent: string };
   simMinutes: number;
   elapsed: number;
   moving: boolean;
@@ -550,6 +551,49 @@ export function createRhoosThreeEngine(canvas: HTMLCanvasElement): RhoosThreeEng
   camera.rotation.order = "YXZ";
   scene.add(camera);
 
+  const sleeveMaterial = new THREE.MeshStandardMaterial({
+    color: 0x263c58,
+    roughness: 0.62,
+  });
+  const handMaterial = new THREE.MeshStandardMaterial({
+    color: 0xdca078,
+    roughness: 0.78,
+  });
+  const wristMaterial = new THREE.MeshStandardMaterial({
+    color: 0x67d7e5,
+    emissive: 0x67d7e5,
+    emissiveIntensity: 0.5,
+    roughness: 0.4,
+  });
+  const firstPersonRig = new THREE.Group();
+  for (const side of [-1, 1]) {
+    const arm = new THREE.Group();
+    const sleeve = new THREE.Mesh(
+      new THREE.CapsuleGeometry(0.075, 0.28, 4, 8),
+      sleeveMaterial,
+    );
+    sleeve.rotation.z = side * 0.22;
+    sleeve.position.y = -0.08;
+    arm.add(sleeve);
+    const wrist = new THREE.Mesh(
+      new THREE.BoxGeometry(0.13, 0.055, 0.13),
+      wristMaterial,
+    );
+    wrist.position.y = 0.12;
+    arm.add(wrist);
+    const hand = new THREE.Mesh(
+      new THREE.SphereGeometry(0.092, 10, 8),
+      handMaterial,
+    );
+    hand.scale.set(0.82, 1.05, 0.72);
+    hand.position.y = 0.21;
+    arm.add(hand);
+    arm.position.set(side * 0.34, -0.35, -0.78);
+    arm.rotation.x = -0.48;
+    firstPersonRig.add(arm);
+  }
+  camera.add(firstPersonRig);
+
   const hemisphere = new THREE.HemisphereLight(0x78a8d4, 0x19261f, 1.45);
   scene.add(hemisphere);
   const sun = new THREE.DirectionalLight(0xffd6a3, 2.2);
@@ -777,6 +821,13 @@ export function createRhoosThreeEngine(canvas: HTMLCanvasElement): RhoosThreeEng
     camera.position.set(state.player.x, 42 + bob, state.player.y);
     camera.rotation.y = -state.player.angle - Math.PI / 2;
     camera.rotation.x = state.player.pitch;
+    sleeveMaterial.color.set(state.profile.jacket);
+    handMaterial.color.set(state.profile.skin);
+    wristMaterial.color.set(state.profile.accent);
+    wristMaterial.emissive.set(state.profile.accent);
+    firstPersonRig.position.y = state.moving
+      ? Math.sin(state.elapsed * (state.sprinting ? 13 : 9)) * 0.025
+      : 0;
 
     for (const car of cars) {
       const position = carPosition(car.index, state.elapsed);

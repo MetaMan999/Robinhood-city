@@ -141,6 +141,26 @@ canvas:focus-visible {
 
 .live-clock,
 .live-wallet {
+  appearance: none;
+  min-width: 0;
+  border-top: 0;
+  border-bottom: 0;
+  border-left: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.live-wallet:hover {
+  background: rgba(103, 215, 229, 0.07);
+}
+
+.live-wallet:hover strong {
+  color: var(--cyan);
+}
+
+.live-wallet {
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -520,6 +540,10 @@ canvas:focus-visible {
   width: min(1080px, calc(100vw - 36px));
 }
 
+.live-panel.player-panel {
+  width: min(1180px, calc(100vw - 36px));
+}
+
 .live-panel-header {
   min-height: 54px;
   display: flex;
@@ -691,6 +715,519 @@ canvas:focus-visible {
 .hook-grid button:disabled {
   opacity: 0.35;
   cursor: not-allowed;
+}
+
+.player-engine {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 330px minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.character-studio {
+  padding: 18px;
+  border-right: 1px solid var(--line);
+  background:
+    linear-gradient(180deg, rgba(255, 93, 158, 0.08), transparent 44%),
+    #111722;
+  overflow-y: auto;
+}
+
+.character-stage {
+  min-height: 300px;
+  display: grid;
+  place-items: center;
+  position: relative;
+  border: 1px solid var(--line);
+  background:
+    linear-gradient(rgba(103, 215, 229, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(103, 215, 229, 0.05) 1px, transparent 1px),
+    radial-gradient(circle at 50% 38%, rgba(103, 215, 229, 0.15), transparent 40%),
+    #0c111b;
+  background-size: 22px 22px, 22px 22px, auto, auto;
+  overflow: hidden;
+}
+
+.character-stage::before,
+.character-stage::after {
+  content: "";
+  position: absolute;
+  width: 120px;
+  height: 1px;
+  background: var(--cyan);
+  opacity: 0.38;
+}
+
+.character-stage::before {
+  top: 36px;
+  left: -26px;
+  transform: rotate(25deg);
+}
+
+.character-stage::after {
+  right: -25px;
+  bottom: 66px;
+  transform: rotate(-25deg);
+}
+
+.character-stage > span {
+  position: absolute;
+  left: 10px;
+  bottom: 8px;
+  color: var(--cyan);
+  font-size: 6px;
+  letter-spacing: 0.1em;
+}
+
+.character-avatar {
+  --avatar-skin: #dca078;
+  --avatar-hair: #171822;
+  --avatar-jacket: #263c58;
+  --avatar-accent: #67d7e5;
+  width: 160px;
+  height: 240px;
+  position: relative;
+  filter: drop-shadow(0 18px 14px rgba(0, 0, 0, 0.45));
+}
+
+.character-avatar i {
+  position: absolute;
+  display: block;
+}
+
+.avatar-shadow {
+  left: 23px;
+  bottom: 1px;
+  width: 116px;
+  height: 17px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.avatar-leg {
+  bottom: 12px;
+  width: 36px;
+  height: 86px;
+  background: #222b3b;
+  clip-path: polygon(5% 0, 95% 0, 82% 100%, 8% 100%);
+}
+
+.avatar-leg.left {
+  left: 40px;
+}
+
+.avatar-leg.right {
+  right: 40px;
+}
+
+.avatar-body {
+  left: 35px;
+  top: 87px;
+  width: 90px;
+  height: 95px;
+  background:
+    linear-gradient(90deg, transparent 47%, var(--avatar-accent) 47% 53%, transparent 53%),
+    var(--avatar-jacket);
+  clip-path: polygon(15% 0, 85% 0, 100% 100%, 0 100%);
+  border-bottom: 5px solid var(--avatar-accent);
+}
+
+.avatar-arm {
+  top: 94px;
+  width: 28px;
+  height: 94px;
+  background: var(--avatar-jacket);
+  border-bottom: 13px solid var(--avatar-skin);
+}
+
+.avatar-arm.left {
+  left: 16px;
+  transform: rotate(7deg);
+}
+
+.avatar-arm.right {
+  right: 16px;
+  transform: rotate(-7deg);
+}
+
+.avatar-neck {
+  left: 68px;
+  top: 74px;
+  width: 25px;
+  height: 28px;
+  background: var(--avatar-skin);
+}
+
+.avatar-head {
+  left: 48px;
+  top: 23px;
+  width: 65px;
+  height: 67px;
+  border-radius: 44% 44% 46% 46%;
+  background: var(--avatar-skin);
+}
+
+.avatar-hair {
+  left: 45px;
+  top: 17px;
+  width: 71px;
+  height: 38px;
+  border-radius: 50% 55% 24% 18%;
+  background: var(--avatar-hair);
+  clip-path: polygon(0 0, 100% 0, 92% 80%, 76% 55%, 63% 85%, 48% 56%, 30% 88%, 9% 68%);
+}
+
+.avatar-eye {
+  top: 56px;
+  width: 7px;
+  height: 4px;
+  background: #10141d;
+}
+
+.avatar-eye.left {
+  left: 64px;
+}
+
+.avatar-eye.right {
+  right: 62px;
+}
+
+.avatar-badge {
+  left: 52px;
+  top: 110px;
+  width: 18px;
+  height: 18px;
+  border: 3px solid var(--avatar-accent);
+  box-shadow: 0 0 10px var(--avatar-accent);
+  transform: rotate(45deg);
+}
+
+.identity-fields {
+  display: grid;
+  grid-template-columns: 1.4fr 0.8fr;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.identity-fields label > span,
+.swatch-row > span {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 6px;
+  letter-spacing: 0.12em;
+}
+
+.identity-fields input {
+  width: 100%;
+  height: 34px;
+  border: 1px solid var(--line-hi);
+  background: #0c111a;
+  color: var(--paper);
+  padding: 0 9px;
+  font: inherit;
+  font-size: 8px;
+}
+
+.appearance-grid {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.swatch-row {
+  display: grid;
+  grid-template-columns: 54px 1fr;
+  align-items: center;
+}
+
+.swatch-row > span {
+  margin: 0;
+}
+
+.swatch-row > div {
+  display: flex;
+  gap: 6px;
+}
+
+.swatch-row button {
+  --swatch: var(--cyan);
+  width: 28px;
+  height: 24px;
+  border: 2px solid transparent;
+  background: var(--swatch);
+  cursor: pointer;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.15);
+}
+
+.swatch-row button.active {
+  border-color: var(--paper);
+  outline: 1px solid var(--swatch);
+  outline-offset: 2px;
+}
+
+.save-profile-button {
+  width: 100%;
+  min-height: 38px;
+  margin-top: 16px;
+  border: 1px solid var(--pink);
+  background: var(--pink);
+  color: var(--void);
+  font-size: 7px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.career-engine {
+  min-width: 0;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.career-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 20px;
+  border: 1px solid color-mix(in srgb, var(--cyan) 42%, var(--line));
+  background:
+    linear-gradient(115deg, rgba(103, 215, 229, 0.12), transparent 62%),
+    #151b28;
+}
+
+.career-hero > div:first-child > span,
+.career-track-heading span,
+.work-launcher span {
+  color: var(--cyan);
+  font-size: 7px;
+  letter-spacing: 0.13em;
+}
+
+.career-hero h2 {
+  margin: 7px 0 5px;
+  font-family: Arial Black, Impact, sans-serif;
+  font-size: clamp(28px, 4vw, 44px);
+  line-height: 0.95;
+}
+
+.career-hero p,
+.work-launcher p {
+  max-width: 560px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.5;
+}
+
+.career-level {
+  min-width: 112px;
+  min-height: 92px;
+  display: grid;
+  place-items: center;
+  padding: 10px;
+  border: 1px solid var(--pink);
+  background: rgba(255, 93, 158, 0.08);
+}
+
+.career-level strong {
+  color: var(--pink);
+  font-family: Arial Black, Impact, sans-serif;
+  font-size: 42px;
+  line-height: 0.8;
+}
+
+.career-level span {
+  color: var(--muted);
+  font-size: 6px;
+}
+
+.career-progress {
+  margin: 12px 0;
+  padding: 13px 15px;
+  border: 1px solid var(--line);
+  background: #101620;
+}
+
+.career-progress > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 9px;
+  font-size: 7px;
+}
+
+.career-progress span {
+  color: var(--muted);
+}
+
+.career-progress i {
+  display: block;
+  height: 7px;
+  background: #262e3c;
+}
+
+.career-progress b {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--cyan), var(--pink));
+}
+
+.career-stats {
+  display: grid;
+  grid-template-columns: 1.5fr 0.7fr 0.9fr 1fr;
+  border: 1px solid var(--line);
+}
+
+.career-stats > div {
+  min-width: 0;
+  padding: 12px;
+  border-right: 1px solid var(--line);
+  background: #171d2a;
+}
+
+.career-stats > div:last-child {
+  border-right: 0;
+}
+
+.career-stats span,
+.career-stats strong {
+  display: block;
+}
+
+.career-stats span {
+  color: var(--muted);
+  font-size: 6px;
+}
+
+.career-stats strong {
+  margin-top: 5px;
+  color: var(--gold);
+  font-size: 10px;
+}
+
+.career-track-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 18px 0 10px;
+}
+
+.career-track-heading strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 9px;
+}
+
+.career-track-heading small {
+  color: var(--gold);
+  font-size: 6px;
+}
+
+.career-track-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.career-track-grid > button {
+  --career-color: var(--cyan);
+  min-height: 176px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--career-color);
+  background: #151b27;
+  color: var(--paper);
+  text-align: left;
+  cursor: pointer;
+}
+
+.career-track-grid > button.active {
+  border-color: var(--career-color);
+  box-shadow: inset 0 0 24px color-mix(in srgb, var(--career-color) 10%, transparent);
+}
+
+.career-track-grid > button:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
+.career-track-grid > button > span {
+  color: var(--career-color);
+  font-size: 8px;
+}
+
+.career-track-grid > button > strong {
+  margin: 7px 0;
+  font-size: 9px;
+}
+
+.career-track-grid > button > p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 7px;
+  line-height: 1.45;
+}
+
+.career-track-grid > button > small {
+  margin-top: auto;
+  padding-top: 9px;
+  color: var(--career-color);
+  font-size: 5px;
+  line-height: 1.4;
+}
+
+.career-track-grid > button > b {
+  margin-top: 8px;
+  color: var(--paper);
+  font-size: 6px;
+}
+
+.work-launcher {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-top: 14px;
+  padding: 16px 18px;
+  border-left: 4px solid var(--green);
+  background: #111b20;
+}
+
+.work-launcher strong {
+  display: block;
+  margin: 6px 0;
+  font-size: 12px;
+}
+
+.work-launcher button {
+  min-width: 170px;
+  min-height: 40px;
+  border: 1px solid var(--green);
+  background: var(--green);
+  color: var(--void);
+  font-size: 7px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.job-grid article.career-match {
+  border-top-color: var(--green);
+  box-shadow: inset 0 0 18px rgba(101, 214, 166, 0.04);
+}
+
+.career-match-badge {
+  align-self: flex-start;
+  margin-top: 7px;
+  padding: 4px 6px;
+  background: rgba(101, 214, 166, 0.12);
+  color: var(--green);
+  font-size: 6px;
 }
 
 .jobs-channel,
@@ -1414,6 +1951,26 @@ kbd {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .player-engine {
+    grid-template-columns: 280px minmax(0, 1fr);
+  }
+
+  .career-track-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .career-stats {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .career-stats > div:nth-child(2) {
+    border-right: 0;
+  }
+
+  .career-stats > div:nth-child(-n + 2) {
+    border-bottom: 1px solid var(--line);
+  }
+
   .building-terminal {
     grid-template-columns: 1fr;
   }
@@ -1512,6 +2069,39 @@ kbd {
     grid-template-columns: 1fr;
   }
 
+  .player-engine {
+    display: block;
+    overflow-y: auto;
+  }
+
+  .character-studio {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .character-stage {
+    min-height: 280px;
+  }
+
+  .career-engine {
+    overflow: visible;
+  }
+
+  .career-hero,
+  .work-launcher {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .career-level {
+    min-width: 0;
+    min-height: 76px;
+  }
+
+  .work-launcher button {
+    width: 100%;
+  }
+
   .matrix-explainer {
     align-items: stretch;
     flex-direction: column;
@@ -1559,6 +2149,21 @@ kbd {
 }
 
 @media (max-width: 520px) {
+  .identity-fields,
+  .career-stats,
+  .career-track-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .career-stats > div {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .career-stats > div:last-child {
+    border-bottom: 0;
+  }
+
   .work-console-backdrop {
     padding: 10px;
   }

@@ -3,27 +3,27 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://rhoos-city-district-one.meta5555.chatgpt.site"),
-  title: "RHOOS CITY — Real 3D Economic RPG",
+  title: "RHOOS CITY — Player & Career Engine",
   description:
-    "Explore a living WebGL city, work real jobs, own businesses, and program its economy with HookTech.",
+    "Create a character, choose a career, work skill-based city jobs, own businesses, and program the economy with HookTech.",
   openGraph: {
-    title: "RHOOS CITY — Real 3D + Original Music",
+    title: "RHOOS CITY — Build a Life. Build the City.",
     description:
-      "A playable first-person economic RPG with modeled streets, traffic, citizens, original music, and programmable HookTech businesses.",
+      "A first-person economic RPG with character customization, careers, playable work, businesses, and HookTech.",
     images: [
       {
         url: "/og.png",
         width: 1536,
         height: 1024,
-        alt: "RHOOS CITY — Real 3D economic RPG",
+        alt: "RHOOS CITY player and career engine",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "RHOOS CITY — Real 3D + Original Music",
+    title: "RHOOS CITY — Build a Life. Build the City.",
     description:
-      "A playable first-person economic RPG with modeled streets, original music, jobs, businesses, and HookTech.",
+      "Create a character, choose a profession, work city jobs, and build an economic life.",
     images: ["/og.png"],
   },
   icons: {

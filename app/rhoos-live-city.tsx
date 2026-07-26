@@ -35,8 +35,33 @@ const CAMERA_HEIGHT = 46;
 const SAVE_KEY = "rhoos-city-hooktech-v3";
 const TAU = Math.PI * 2;
 
-type Panel = null | "building" | "jobs" | "hooks" | "map";
+type Panel = null | "building" | "jobs" | "hooks" | "map" | "player";
 type Weather = "CLEAR" | "MIST" | "RAIN";
+type CareerId = "operator" | "courier" | "merchant" | "analyst" | "founder";
+
+type CharacterProfile = {
+  name: string;
+  callSign: string;
+  skin: string;
+  hair: string;
+  jacket: string;
+  accent: string;
+  careerId: CareerId;
+  careerXp: number;
+  totalEarned: number;
+  workStreak: number;
+};
+
+type CareerTrack = {
+  id: CareerId;
+  code: string;
+  name: string;
+  title: string;
+  description: string;
+  color: string;
+  kinds: Building["kind"][];
+  payBonus: number;
+};
 
 type ActiveJob = {
   jobId: string;
@@ -61,6 +86,87 @@ type WorkGame = {
   timeLeft: number;
 };
 
+const CAREER_TRACKS: CareerTrack[] = [
+  {
+    id: "operator",
+    code: "OPS",
+    name: "Systems Operator",
+    title: "Infrastructure Apprentice",
+    description: "Keep factories, utilities, and production lines alive.",
+    color: "#f4d35e",
+    kinds: ["utility", "industry"],
+    payBonus: 0.12,
+  },
+  {
+    id: "courier",
+    code: "MOV",
+    name: "City Courier",
+    title: "District Runner",
+    description: "Move goods and information through the living traffic network.",
+    color: "#67d7e5",
+    kinds: ["transport", "civic"],
+    payBonus: 0.12,
+  },
+  {
+    id: "merchant",
+    code: "COM",
+    name: "Market Maker",
+    title: "Retail Associate",
+    description: "Read demand, serve customers, and grow commercial businesses.",
+    color: "#65d6a6",
+    kinds: ["commerce", "entertainment"],
+    payBonus: 0.12,
+  },
+  {
+    id: "analyst",
+    code: "FIN",
+    name: "Financial Analyst",
+    title: "Ledger Trainee",
+    description: "Work with banks, treasuries, prices, and HookTech signals.",
+    color: "#82c0ff",
+    kinds: ["finance", "civic"],
+    payBonus: 0.14,
+  },
+  {
+    id: "founder",
+    code: "OWN",
+    name: "Independent Founder",
+    title: "Sole Proprietor",
+    description: "Build reputation across every sector and acquire city property.",
+    color: "#ff5d9e",
+    kinds: ["commerce", "industry", "finance"],
+    payBonus: 0.08,
+  },
+];
+
+const SKIN_TONES = ["#f0c6a4", "#dca078", "#b97755", "#8f563f", "#623d35"];
+const HAIR_COLORS = ["#171822", "#42312c", "#805334", "#d6c18f", "#53637d"];
+const JACKET_COLORS = ["#263c58", "#5f3257", "#28564d", "#604033", "#35364c"];
+const ACCENT_COLORS = ["#67d7e5", "#ff5d9e", "#f4d35e", "#65d6a6", "#e85dff"];
+
+function defaultProfile(): CharacterProfile {
+  return {
+    name: "Ari Kuroda",
+    callSign: "CITY-01",
+    skin: SKIN_TONES[1],
+    hair: HAIR_COLORS[0],
+    jacket: JACKET_COLORS[0],
+    accent: ACCENT_COLORS[0],
+    careerId: "courier",
+    careerXp: 0,
+    totalEarned: 0,
+    workStreak: 0,
+  };
+}
+
+function careerLevel(xp: number) {
+  return Math.max(1, Math.floor(xp / 120) + 1);
+}
+
+function careerProgress(xp: number) {
+  return ((xp % 120) / 120) * 100;
+}
+
 type Engine = {
   player: { x: number; y: number; angle: number; pitch: number };
   simMinutes: number;
@@ -70,6 +176,7 @@ type Engine = {
   cash: number;
   energy: number;
   reputation: number;
+  profile: CharacterProfile;
   selectedId: string;
   businesses: Record<string, BusinessState>;
   properties: string[];
@@ -121,6 +228,7 @@ function initialEngine(): Engine {
     cash: 3200,
     energy: 90,
     reputation: 0,
+    profile: defaultProfile(),
     selectedId: "city-hall",
     businesses: makeInitialBusinesses(),
     properties: [],
@@ -995,6 +1103,7 @@ export default function RhoosLiveCity() {
           ...base,
           ...saved,
           player: { ...base.player, ...saved.player },
+          profile: { ...base.profile, ...saved.profile },
           businesses: { ...base.businesses, ...saved.businesses },
           installedHooks: saved.installedHooks ?? base.installedHooks,
           disabledHooks: saved.disabledHooks ?? [],
@@ -1121,6 +1230,7 @@ export default function RhoosLiveCity() {
           "h",
           "j",
           "m",
+          "p",
           " ",
           "arrowleft",
           "arrowright",
@@ -1137,6 +1247,7 @@ export default function RhoosLiveCity() {
       if (key === "h") setPanel((current) => (current === "hooks" ? null : "hooks"));
       if (key === "j") setPanel((current) => (current === "jobs" ? null : "jobs"));
       if (key === "m") setPanel((current) => (current === "map" ? null : "map"));
+      if (key === "p") setPanel((current) => (current === "player" ? null : "player"));
       if (key === " " && workGame) {
         hitWorkGame();
       } else if (key === " ") {
@@ -1176,9 +1287,21 @@ export default function RhoosLiveCity() {
     const job = JOBS.find((item) => item.id === engine.activeJob?.jobId);
     if (!job) return;
     const rewardHook = HOOK_MODULES.find((hook) => hook.id === "shift-rewards")!;
-    const bonus = hookActive(engine, "shift-rewards") ? Math.round(job.pay * 0.15) : 0;
-    engine.cash += job.pay + bonus;
+    const track =
+      CAREER_TRACKS.find((career) => career.id === engine.profile.careerId) ??
+      CAREER_TRACKS[0];
+    const building = BUILDINGS.find((item) => item.id === job.buildingId)!;
+    const aligned = track.kinds.includes(building.kind);
+    const hookBonus = hookActive(engine, "shift-rewards")
+      ? Math.round(job.pay * 0.15)
+      : 0;
+    const careerBonus = aligned ? Math.round(job.pay * track.payBonus) : 0;
+    const totalPay = job.pay + hookBonus + careerBonus;
+    engine.cash += totalPay;
     engine.reputation += job.reputation;
+    engine.profile.careerXp += aligned ? 34 : 18;
+    engine.profile.totalEarned += totalPay;
+    engine.profile.workStreak += 1;
     engine.energy = clamp(engine.energy - 13, 0, 100);
     engine.jobsCompleted += 1;
     engine.businesses[job.buildingId].cash -= job.pay;
@@ -1189,9 +1312,14 @@ export default function RhoosLiveCity() {
     );
     addEvent(
       engine,
-      `${job.title} complete. ${formatMoney(job.pay + bonus)} settled.`,
+      `${job.title} complete. ${formatMoney(totalPay)} settled.`,
     );
-    if (bonus) addPacket(engine, rewardHook, `SHIFT BONUS ${formatMoney(bonus)}`);
+    if (hookBonus) {
+      addPacket(engine, rewardHook, `SHIFT BONUS ${formatMoney(hookBonus)}`);
+    }
+    if (careerBonus) {
+      addEvent(engine, `${track.code} career bonus +${formatMoney(careerBonus)}.`);
+    }
     engine.activeJob = null;
     soundRef.current?.blip("reward");
     refresh();
@@ -1308,11 +1436,39 @@ export default function RhoosLiveCity() {
   const activeJob = engine.activeJob
     ? JOBS.find((job) => job.id === engine.activeJob?.jobId)
     : null;
+  const currentCareer =
+    CAREER_TRACKS.find((career) => career.id === engine.profile.careerId) ??
+    CAREER_TRACKS[0];
+  const currentCareerLevel = careerLevel(engine.profile.careerXp);
   const installedCount = engine.installedHooks.length;
   const activeHookCount = engine.installedHooks.filter(
     (id) => !engine.disabledHooks.includes(id),
   ).length;
   const nearSelected = distanceToRect(engine.player.x, engine.player.y, selected) < 105;
+
+  function updateProfile<K extends keyof CharacterProfile>(
+    key: K,
+    value: CharacterProfile[K],
+  ) {
+    engine.profile[key] = value;
+    setSaveLabel("PROFILE UNSAVED");
+    refresh();
+  }
+
+  function selectCareer(career: CareerTrack) {
+    if (engine.activeJob) {
+      addEvent(engine, "Finish or clear the active contract before changing careers.");
+      soundRef.current?.blip("error");
+      refresh();
+      return;
+    }
+    engine.profile.careerId = career.id;
+    engine.profile.workStreak = 0;
+    addEvent(engine, `${career.name} career track activated.`);
+    soundRef.current?.blip("hook");
+    setSaveLabel("CAREER UPDATED");
+    refresh();
+  }
 
   function acceptJob(job: Job) {
     if (engine.reputation < job.requiredReputation || engine.activeJob) {
@@ -1325,6 +1481,16 @@ export default function RhoosLiveCity() {
     addEvent(engine, `${job.title} accepted. Travel to ${target.name}.`);
     soundRef.current?.blip("interact");
     setPanel(null);
+    refresh();
+  }
+
+  function cancelActiveJob() {
+    const job = JOBS.find((item) => item.id === engine.activeJob?.jobId);
+    if (!job) return;
+    engine.activeJob = null;
+    setWorkGame(null);
+    addEvent(engine, `${job.title} contract released back to the city.`);
+    soundRef.current?.blip("interact");
     refresh();
   }
 
@@ -1486,11 +1652,16 @@ export default function RhoosLiveCity() {
             <strong>{time.text}</strong>
             <small>{engine.weather} / {engine.paused ? "PAUSED" : `${engine.speed}× LIVE`}</small>
           </div>
-          <div className="live-wallet">
-            <span>PLAYER WALLET</span>
-            <strong>{formatMoney(engine.cash)}</strong>
-            <small>REP {String(engine.reputation).padStart(2, "0")} / ENERGY {Math.round(engine.energy)}%</small>
-          </div>
+          <button
+            type="button"
+            className="live-wallet"
+            onClick={() => setPanel("player")}
+            aria-label="Open player character and career"
+          >
+            <span>{engine.profile.callSign} / LV.{currentCareerLevel}</span>
+            <strong>{engine.profile.name}</strong>
+            <small>{currentCareer.code} / {formatMoney(engine.cash)} / REP {String(engine.reputation).padStart(2, "0")}</small>
+          </button>
           <div className="top-actions">
             <button onClick={toggleAudio}>{audioOn ? "MUSIC ON" : "MUSIC OFF"}</button>
             <label className="volume-control">
@@ -1578,6 +1749,9 @@ export default function RhoosLiveCity() {
           <button className={panel === "hooks" ? "active" : ""} onClick={() => setPanel(panel === "hooks" ? null : "hooks")}>
             <b>H</b><span>HOOKTECH</span>
           </button>
+          <button className={panel === "player" ? "active" : ""} onClick={() => setPanel(panel === "player" ? null : "player")}>
+            <b>P</b><span>PLAYER</span>
+          </button>
           <button onClick={saveGame}>
             <b>⌁</b><span>{saveLabel}</span>
           </button>
@@ -1648,7 +1822,9 @@ export default function RhoosLiveCity() {
         {panel && (
           <div className="live-panel-backdrop" onMouseDown={() => setPanel(null)}>
             <section
-              className={`live-panel ${panel === "map" ? "map-panel" : ""}`}
+              className={`live-panel ${
+                panel === "map" ? "map-panel" : panel === "player" ? "player-panel" : ""
+              }`}
               onMouseDown={(event) => event.stopPropagation()}
               role="dialog"
               aria-modal="true"
@@ -1664,7 +1840,9 @@ export default function RhoosLiveCity() {
                         ? "CITY JOBS CHANNEL"
                         : panel === "hooks"
                           ? "HOOKTECH MATRIX"
-                          : "DISTRICT ONE MAP"}
+                          : panel === "player"
+                            ? "PLAYER / CAREER ENGINE"
+                            : "DISTRICT ONE MAP"}
                   </strong>
                 </div>
                 <button onClick={() => setPanel(null)}>CLOSE ×</button>
@@ -1713,6 +1891,175 @@ export default function RhoosLiveCity() {
                 </div>
               )}
 
+              {panel === "player" && (
+                <div className="player-engine">
+                  <aside className="character-studio">
+                    <div className="character-stage">
+                      <div
+                        className="character-avatar"
+                        style={
+                          {
+                            "--avatar-skin": engine.profile.skin,
+                            "--avatar-hair": engine.profile.hair,
+                            "--avatar-jacket": engine.profile.jacket,
+                            "--avatar-accent": engine.profile.accent,
+                          } as React.CSSProperties
+                        }
+                        aria-label={`Character preview for ${engine.profile.name}`}
+                      >
+                        <i className="avatar-shadow" />
+                        <i className="avatar-leg left" />
+                        <i className="avatar-leg right" />
+                        <i className="avatar-body" />
+                        <i className="avatar-arm left" />
+                        <i className="avatar-arm right" />
+                        <i className="avatar-neck" />
+                        <i className="avatar-head" />
+                        <i className="avatar-hair" />
+                        <i className="avatar-eye left" />
+                        <i className="avatar-eye right" />
+                        <i className="avatar-badge" />
+                      </div>
+                      <span>LIVE PLAYER MODEL / DISTRICT ID VERIFIED</span>
+                    </div>
+
+                    <div className="identity-fields">
+                      <label>
+                        <span>CHARACTER NAME</span>
+                        <input
+                          value={engine.profile.name}
+                          maxLength={22}
+                          onChange={(event) => updateProfile("name", event.target.value)}
+                        />
+                      </label>
+                      <label>
+                        <span>CALL SIGN</span>
+                        <input
+                          value={engine.profile.callSign}
+                          maxLength={12}
+                          onChange={(event) =>
+                            updateProfile("callSign", event.target.value.toUpperCase())
+                          }
+                        />
+                      </label>
+                    </div>
+
+                    <div className="appearance-grid">
+                      <SwatchRow
+                        label="SKIN"
+                        values={SKIN_TONES}
+                        selected={engine.profile.skin}
+                        onSelect={(value) => updateProfile("skin", value)}
+                      />
+                      <SwatchRow
+                        label="HAIR"
+                        values={HAIR_COLORS}
+                        selected={engine.profile.hair}
+                        onSelect={(value) => updateProfile("hair", value)}
+                      />
+                      <SwatchRow
+                        label="JACKET"
+                        values={JACKET_COLORS}
+                        selected={engine.profile.jacket}
+                        onSelect={(value) => updateProfile("jacket", value)}
+                      />
+                      <SwatchRow
+                        label="TECH"
+                        values={ACCENT_COLORS}
+                        selected={engine.profile.accent}
+                        onSelect={(value) => updateProfile("accent", value)}
+                      />
+                    </div>
+                    <button className="save-profile-button" onClick={saveGame}>
+                      SAVE CHARACTER TO CITY FILE
+                    </button>
+                  </aside>
+
+                  <section className="career-engine">
+                    <div className="career-hero">
+                      <div>
+                        <span>{currentCareer.code} CAREER NETWORK / LEVEL {currentCareerLevel}</span>
+                        <h2>{currentCareer.name}</h2>
+                        <p>{currentCareer.description}</p>
+                      </div>
+                      <div className="career-level">
+                        <strong>{currentCareerLevel}</strong>
+                        <span>CAREER LEVEL</span>
+                      </div>
+                    </div>
+
+                    <div className="career-progress">
+                      <div>
+                        <span>PROGRESS TO LEVEL {currentCareerLevel + 1}</span>
+                        <strong>{engine.profile.careerXp % 120} / 120 XP</strong>
+                      </div>
+                      <i>
+                        <b style={{ width: `${careerProgress(engine.profile.careerXp)}%` }} />
+                      </i>
+                    </div>
+
+                    <div className="career-stats">
+                      <DataStat label="CURRENT TITLE" value={currentCareer.title} />
+                      <DataStat label="CAREER BONUS" value={`+${Math.round(currentCareer.payBonus * 100)}%`} />
+                      <DataStat label="WORK STREAK" value={`${engine.profile.workStreak} SHIFTS`} />
+                      <DataStat label="LIFETIME WAGES" value={formatMoney(engine.profile.totalEarned)} />
+                    </div>
+
+                    <div className="career-track-heading">
+                      <div>
+                        <span>SELECT PROFESSION</span>
+                        <strong>Your career changes wage bonuses and recommended work.</strong>
+                      </div>
+                      {engine.activeJob && <small>FINISH ACTIVE CONTRACT TO SWITCH</small>}
+                    </div>
+
+                    <div className="career-track-grid">
+                      {CAREER_TRACKS.map((career) => {
+                        const active = career.id === engine.profile.careerId;
+                        return (
+                          <button
+                            key={career.id}
+                            className={active ? "active" : ""}
+                            style={{ "--career-color": career.color } as React.CSSProperties}
+                            onClick={() => selectCareer(career)}
+                            disabled={Boolean(engine.activeJob) && !active}
+                          >
+                            <span>{career.code}</span>
+                            <strong>{career.name}</strong>
+                            <p>{career.description}</p>
+                            <small>
+                              {career.kinds.map((kind) => kind.toUpperCase()).join(" + ")}
+                            </small>
+                            <b>{active ? "ACTIVE CAREER" : "SELECT TRACK"}</b>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <div className="work-launcher">
+                      <div>
+                        <span>{activeJob ? "ACTIVE WORK ORDER" : "READY FOR WORK"}</span>
+                        <strong>{activeJob?.title ?? `${currentCareer.name} job network`}</strong>
+                        <p>
+                          {activeJob
+                            ? `Report to ${
+                                BUILDINGS.find(
+                                  (building) => building.id === activeJob.buildingId,
+                                )?.name
+                              } and use the local terminal.`
+                            : `Career-matched contracts pay a ${Math.round(
+                                currentCareer.payBonus * 100,
+                              )}% wage bonus and award more XP.`}
+                        </p>
+                      </div>
+                      <button onClick={() => setPanel(activeJob ? "map" : "jobs")}>
+                        {activeJob ? "OPEN ROUTE MAP" : "FIND MATCHED WORK"} →
+                      </button>
+                    </div>
+                  </section>
+                </div>
+              )}
+
               {panel === "jobs" && (
                 <div className="jobs-channel">
                   <div className="channel-summary">
@@ -1725,22 +2072,48 @@ export default function RhoosLiveCity() {
                       const building = BUILDINGS.find((item) => item.id === job.buildingId)!;
                       const locked = engine.reputation < job.requiredReputation;
                       const active = engine.activeJob?.jobId === job.id;
+                      const careerMatch = currentCareer.kinds.includes(building.kind);
                       return (
-                        <article key={job.id} className={active ? "active" : ""}>
+                        <article
+                          key={job.id}
+                          className={`${active ? "active" : ""} ${careerMatch ? "career-match" : ""}`}
+                        >
                           <div className="job-building" style={{ color: building.accent }}>
                             {building.shortName} / REP {job.requiredReputation}+
                           </div>
+                          {careerMatch && (
+                            <div className="career-match-badge">
+                              {currentCareer.code} MATCH / +{Math.round(currentCareer.payBonus * 100)}%
+                            </div>
+                          )}
                           <h3>{job.title}</h3>
                           <p>{job.description}</p>
                           <div className="job-meta">
-                            <strong>{formatMoney(job.pay)}</strong>
-                            <span>{job.duration}s VERIFIED SHIFT</span>
+                            <strong>
+                              {formatMoney(
+                                job.pay +
+                                  (careerMatch
+                                    ? Math.round(job.pay * currentCareer.payBonus)
+                                    : 0),
+                              )}
+                            </strong>
+                            <span>
+                              {job.duration}s VERIFIED SHIFT
+                              {careerMatch ? " / CAREER PAY" : ""}
+                            </span>
                           </div>
                           <button
-                            onClick={() => acceptJob(job)}
-                            disabled={locked || Boolean(engine.activeJob)}
+                            onClick={() => (active ? cancelActiveJob() : acceptJob(job))}
+                            disabled={
+                              locked ||
+                              (Boolean(engine.activeJob) && !active)
+                            }
                           >
-                            {active ? "CONTRACT ACTIVE" : locked ? "REPUTATION LOCKED" : "ACCEPT CONTRACT"}
+                            {active
+                              ? "RELEASE CONTRACT"
+                              : locked
+                                ? "REPUTATION LOCKED"
+                                : "ACCEPT CONTRACT"}
                           </button>
                         </article>
                       );
@@ -1920,15 +2293,14 @@ export default function RhoosLiveCity() {
               <span>HOOKTECH OPERATING SYSTEM / BOOT SEQUENCE 88</span>
               <strong>RHOOS</strong>
               <strong>CITY</strong>
-              <p>REAL 3D ECONOMIC PROTOCOL</p>
+              <p>MULTI-SYSTEM PLAYER ENGINE</p>
             </div>
             <div className="intro-brief">
               <span className="panel-label">DISTRICT ONE / 06:52</span>
-              <h1>Real streets. Real models.<br />A city you can play.</h1>
+              <h1>Build a life.<br />Build the city.</h1>
               <p>
-                Walk a fully modeled 3D district, follow traffic and citizens,
-                play skill-based shifts, buy businesses, and hear the city&apos;s
-                original midnight circuit soundtrack.
+                Create your character, choose a profession, work skill-based
+                shifts, grow a career, own businesses, and program the economy.
               </p>
               <div className="intro-keys">
                 <div><kbd>WASD</kbd><span>MOVE</span></div>
@@ -1939,7 +2311,7 @@ export default function RhoosLiveCity() {
               <button onClick={() => void enterCity()}>
                 ENTER 3D CITY + MUSIC <b>→</b>
               </button>
-              <small>WEBGL MODEL RUNTIME / ORIGINAL AUDIO / VERSION 0.3</small>
+              <small>PLAYER + CAREER + WORK + ECONOMY ENGINE / VERSION 0.4</small>
             </div>
           </div>
         )}
@@ -1970,6 +2342,37 @@ function DataStat({ label, value }: { label: string; value: string }) {
     <div>
       <span>{label}</span>
       <strong>{value}</strong>
+    </div>
+  );
+}
+
+function SwatchRow({
+  label,
+  values,
+  selected,
+  onSelect,
+}: {
+  label: string;
+  values: string[];
+  selected: string;
+  onSelect: (value: string) => void;
+}) {
+  return (
+    <div className="swatch-row">
+      <span>{label}</span>
+      <div>
+        {values.map((value) => (
+          <button
+            key={value}
+            type="button"
+            className={selected === value ? "active" : ""}
+            style={{ "--swatch": value } as React.CSSProperties}
+            onClick={() => onSelect(value)}
+            aria-label={`Set ${label.toLowerCase()} color ${value}`}
+            aria-pressed={selected === value}
+          />
+        ))}
+      </div>
     </div>
   );
 }
