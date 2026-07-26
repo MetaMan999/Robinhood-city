@@ -150,6 +150,45 @@ type CityDialogue = {
   text: string;
 };
 
+type HookPass = {
+  id: string;
+  name: string;
+  hookId: string;
+  cardId: string;
+  serial: string;
+  paid: number;
+};
+
+const HOOK_PASSES = [
+  {
+    id: "runner-pass",
+    name: "RUNNER PASS",
+    hookId: "traffic-oracle",
+    cardId: "traffic-oracle",
+    price: 600,
+    color: "#67d7e5",
+    description: "City entry plus live traffic intelligence for couriers and drivers.",
+  },
+  {
+    id: "worker-pass",
+    name: "WORKER PASS",
+    hookId: "shift-rewards",
+    cardId: "shift-rewards",
+    price: 900,
+    color: "#65d6a6",
+    description: "City entry plus verified-shift rewards and career progression.",
+  },
+  {
+    id: "founder-pass",
+    name: "FOUNDER PASS",
+    hookId: "treasury-split",
+    cardId: "treasury-split",
+    price: 1200,
+    color: "#ff5d9e",
+    description: "City entry plus programmable treasury splits for owned businesses.",
+  },
+] as const;
+
 const CAREER_TRACKS: CareerTrack[] = [
   {
     id: "operator",
@@ -279,6 +318,7 @@ type Engine = {
   reputation: number;
   profile: CharacterProfile;
   nftCharacter: NftCharacter | null;
+  hookPass: HookPass | null;
   tcg: TcgProgress;
   corporate: { companyId: string | null; xp: number; shifts: number };
   selectedId: string;
@@ -359,6 +399,7 @@ function initialEngine(): Engine {
     reputation: 0,
     profile: defaultProfile(),
     nftCharacter: null,
+    hookPass: null,
     tcg: {
       credits: 0,
       rating: 800,
@@ -1339,6 +1380,9 @@ export default function RhoosLiveCity() {
   const [nftName, setNftName] = useState("District Origin");
   const [nftImageUrl, setNftImageUrl] = useState("");
   const [dialogue, setDialogue] = useState<CityDialogue | null>(null);
+  const [entryMessage, setEntryMessage] = useState(
+    "CHOOSE A V4 HOOK PASS TO CREATE YOUR PLAYABLE CITY IDENTITY",
+  );
 
   const refresh = useCallback(() => setRevision((value) => value + 1), []);
 
@@ -2128,7 +2172,48 @@ export default function RhoosLiveCity() {
     }
   }
 
+  function purchaseHookPass(pass: (typeof HOOK_PASSES)[number]) {
+    const current = engineRef.current;
+    if (current.hookPass?.id === pass.id) {
+      setEntryMessage(`${pass.name} ALREADY EQUIPPED / ENTRY READY`);
+      soundRef.current?.blip("interact");
+      return;
+    }
+    if (current.cash < pass.price) {
+      setEntryMessage(`${formatMoney(pass.price - current.cash)} MORE CITY CASH REQUIRED`);
+      soundRef.current?.blip("error");
+      return;
+    }
+    current.cash -= pass.price;
+    current.hookPass = {
+      id: pass.id,
+      name: pass.name,
+      hookId: pass.hookId,
+      cardId: pass.cardId,
+      paid: pass.price,
+      serial: `V4-${String(current.day).padStart(2, "0")}-${current.block.toString(16).toUpperCase()}`,
+    };
+    if (!current.installedHooks.includes(pass.hookId)) {
+      current.installedHooks.push(pass.hookId);
+    }
+    if (!current.tcg.collection.includes(pass.cardId)) {
+      current.tcg.collection.push(pass.cardId);
+      current.tcg.cardInstances[pass.cardId] = createCardInstance(pass.cardId, current);
+    }
+    addEvent(current, `${pass.name} purchased and bound to player identity.`);
+    setEntryMessage(`${pass.name} BOUND / ${current.hookPass.serial} / ENTRY READY`);
+    soundRef.current?.blip("reward");
+    setSaveLabel("HOOK PASS UNSAVED");
+    refresh();
+  }
+
   async function enterCity() {
+    const current = engineRef.current;
+    if (!current.hookPass && !current.nftCharacter?.verified) {
+      setEntryMessage("ENTRY LOCKED / PURCHASE A V4 HOOK PASS FIRST");
+      soundRef.current?.blip("error");
+      return;
+    }
     if (audioOn) {
       await soundRef.current?.start();
       soundRef.current?.setMuted(false);
@@ -2335,9 +2420,9 @@ export default function RhoosLiveCity() {
             onClick={() => setPanel("cards")}
             aria-label="Open NFT character and card deck"
           >
-            <span>{engine.nftCharacter?.verified ? "NFT CHARACTER VERIFIED" : "ORIGIN CHARACTER / NFT READY"}</span>
-            <strong>{engine.nftCharacter?.name ?? engine.profile.name}</strong>
-            <small>{engine.tcg.credits} RHO / RATING {engine.tcg.rating} / {shortAddress(walletIdentity?.account ?? "")}</small>
+            <span>{engine.nftCharacter?.verified ? "NFT CHARACTER VERIFIED" : engine.hookPass ? "V4 HOOK PASS ACTIVE" : "CITY ENTRY ASSET REQUIRED"}</span>
+            <strong>{engine.nftCharacter?.name ?? engine.hookPass?.name ?? engine.profile.name}</strong>
+            <small>{engine.hookPass?.serial ?? `${engine.tcg.credits} RHO / RATING ${engine.tcg.rating}`} / {shortAddress(walletIdentity?.account ?? "")}</small>
           </button>
           <div className="top-actions">
             <button onClick={toggleAudio}>{audioOn ? "MUSIC ON" : "MUSIC OFF"}</button>
@@ -2739,8 +2824,8 @@ export default function RhoosLiveCity() {
                   <section className="nft-passport">
                     <div className={`character-card-frame ${engine.nftCharacter?.verified ? "verified" : ""}`}>
                       <div className="character-card-kicker">
-                        <span>{engine.nftCharacter?.verified ? "VERIFIED ERC-721" : "CITY ORIGIN"}</span>
-                        <b>{engine.nftCharacter?.verified ? `#${engine.nftCharacter.tokenId}` : "FREE STARTER"}</b>
+                        <span>{engine.nftCharacter?.verified ? "VERIFIED ERC-721" : engine.hookPass ? "V4 HOOK ASSET" : "ENTRY UNBOUND"}</span>
+                        <b>{engine.nftCharacter?.verified ? `#${engine.nftCharacter.tokenId}` : engine.hookPass?.serial ?? "NO PASS"}</b>
                       </div>
                       <div className="character-card-art">
                         {engine.nftCharacter?.imageUrl ? (
@@ -3344,20 +3429,46 @@ export default function RhoosLiveCity() {
               <span className="panel-label">DISTRICT ONE / 06:52</span>
               <h1>Move freely.<br />Build a life.</h1>
               <p>
-                Explore with a simple N64-inspired third-person controller,
-                enter your RHO-86 street coupe, build a work deck, play job
-                encounters, grow a career, and own businesses.
+                Your player card is a living v4 Hook asset. Purchase a City Pass
+                with prototype city cash to enter, then drive, work, grow its
+                stats, and turn your identity into a more valuable city asset.
               </p>
+              <div className="intro-pass-market">
+                {HOOK_PASSES.map((pass) => {
+                  const active = engine.hookPass?.id === pass.id;
+                  return (
+                    <button
+                      key={pass.id}
+                      className={active ? "active" : ""}
+                      style={{ "--pass-color": pass.color } as React.CSSProperties}
+                      onClick={() => purchaseHookPass(pass)}
+                    >
+                      <span>V4 HOOK / {pass.hookId.toUpperCase()}</span>
+                      <strong>{pass.name}</strong>
+                      <p>{pass.description}</p>
+                      <b>{active ? `EQUIPPED / ${engine.hookPass?.serial}` : `PURCHASE / ${formatMoney(pass.price)}`}</b>
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="intro-entry-status">
+                <span>{entryMessage}</span>
+                <b>CITY CASH {formatMoney(engine.cash)}</b>
+              </div>
               <div className="intro-keys">
                 <div><kbd>WASD</kbd><span>MOVE</span></div>
                 <div><kbd>ARROWS</kbd><span>CAMERA</span></div>
                 <div><kbd>E</kbd><span>ENTER CAR</span></div>
                 <div><kbd>C</kbd><span>CARDS</span></div>
               </div>
-              <button onClick={() => void enterCity()}>
-                ENTER 3D CITY + MUSIC <b>→</b>
+              <button
+                className="intro-enter"
+                onClick={() => void enterCity()}
+                disabled={!engine.hookPass && !engine.nftCharacter?.verified}
+              >
+                {engine.hookPass ? `ENTER WITH ${engine.hookPass.name}` : "SELECT A HOOK PASS TO ENTER"} <b>→</b>
               </button>
-              <small>THIRD-PERSON 64 + DRIVING + WORK TCG + CITY ECONOMY / VERSION 0.7</small>
+              <small>V4 HOOK PLAYER ASSETS + THIRD-PERSON CITY + DRIVING + WORK TCG / VERSION 0.8</small>
             </div>
           </div>
         )}

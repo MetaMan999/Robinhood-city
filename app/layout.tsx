@@ -5,11 +5,11 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://rhoos-city-district-one.meta5555.chatgpt.site"),
   title: "RHOOS CITY — Third-Person Work RPG",
   description:
-    "Explore a living city with easy third-person controls, enter multiple cars, talk to scheduled citizens, follow a live minimap, work corporate jobs, and rise to boss.",
+    "Purchase a v4 Hook Pass player card to enter a living city, drive multiple cars, talk to scheduled citizens, follow a live minimap, work jobs, and rise to boss.",
   openGraph: {
     title: "RHOOS CITY — Move. Talk. Drive. Work.",
     description:
-      "A third-person living-city RPG with easy car entry, city conversations, a live minimap, unique cards, corporate careers, and playable work.",
+      "A third-person living-city RPG where v4 Hook Pass player cards unlock entry, work, driving, conversations, careers, and a live city economy.",
     images: [
       {
         url: "/og.png",

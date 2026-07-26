@@ -7,9 +7,10 @@ free origin character or verify an ERC-721 character NFT, build a
 work deck, win corporate job encounters, rise from intern to District Boss,
 own businesses, and automate the economy with HookTech.
 
-Version 0.8 adds GTA-like easy vehicle entry, a four-car driveable fleet,
-nearby-person targeting, interactive dialogue bubbles, street and district
-labels, and a permanent minimap with roads, buildings, cars, and job markers.
+Version 0.8 adds purchasable v4 Hook Pass player-card entry assets, GTA-like
+easy vehicle entry, a four-car driveable fleet, nearby-person targeting,
+interactive dialogue bubbles, street and district labels, and a permanent
+minimap with roads, buildings, cars, and job markers.
 
 ## Run locally
 
@@ -47,6 +48,10 @@ Open the local address printed by the development server.
 
 ## TCG and career systems
 
+- Three prototype v4 Hook Pass assets—Runner, Worker, and Founder—that are
+  purchased with device-local city cash and become the player’s entry identity
+- Each Hook Pass binds a unique serial, installs its matching city rule, and
+  unlocks the corresponding live HookTech card
 - Free city-origin character, plus user-triggered ERC-721 ownership verification
 - Read-only wallet integration using the EIP-1193 provider interface
 - Sixteen work cards across movement, industry, markets, finance, and HookTech

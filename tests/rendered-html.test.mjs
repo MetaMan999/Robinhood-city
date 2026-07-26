@@ -28,8 +28,8 @@ test("server-renders the NFT work TCG shell", async () => {
   assert.match(html, /Move freely\./);
   assert.match(html, /Build a life\./);
   assert.match(html, /HOOKTECH CARD PROTOCOL/);
-  assert.match(html, /ENTER 3D CITY \+ MUSIC/);
-  assert.match(html, /THIRD-PERSON 64 \+ DRIVING \+ WORK TCG \+ CITY ECONOMY/);
+  assert.match(html, /SELECT A HOOK PASS TO ENTER/);
+  assert.match(html, /V4 HOOK PLAYER ASSETS \+ THIRD-PERSON CITY \+ DRIVING \+ WORK TCG/);
   assert.match(html, /og\.png/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton|Starter Project/i);
 });
@@ -59,6 +59,9 @@ test("keeps the NFT, unique card, corporate, WebGL, soundtrack, and HookTech eng
   assert.match(game, /SHOW ME THE JOBS/);
   assert.match(game, /mini-map-world/);
   assert.match(game, /cityLocation/);
+  assert.match(game, /HOOK_PASSES/);
+  assert.match(game, /purchaseHookPass/);
+  assert.match(game, /ENTRY LOCKED \/ PURCHASE A V4 HOOK PASS FIRST/);
   assert.match(game, /handbrake/);
   assert.match(game, /vehicle\.odometer/);
   assert.match(game, /navigator\.getGamepads/);
