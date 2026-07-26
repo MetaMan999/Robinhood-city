@@ -14,7 +14,7 @@ async function render() {
   );
 }
 
-test("server-renders the player and career game shell", async () => {
+test("server-renders the NFT work TCG shell", async () => {
   const response = await render();
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
@@ -22,21 +22,24 @@ test("server-renders the player and career game shell", async () => {
   const html = await response.text();
   assert.match(
     html,
-    /<title>RHOOS CITY — Player &amp; Career Engine<\/title>/i,
+    /<title>RHOOS CITY — NFT Work TCG<\/title>/i,
   );
-  assert.match(html, /MULTI-SYSTEM PLAYER ENGINE/);
+  assert.match(html, /NFT WORK TCG \/ LIVING CITY ENGINE/);
+  assert.match(html, /Play a card\./);
   assert.match(html, /Build a life\./);
-  assert.match(html, /Build the city\./);
-  assert.match(html, /HOOKTECH OPERATING SYSTEM/);
+  assert.match(html, /HOOKTECH CARD PROTOCOL/);
   assert.match(html, /ENTER 3D CITY \+ MUSIC/);
-  assert.match(html, /PLAYER \+ CAREER \+ WORK \+ ECONOMY ENGINE/);
+  assert.match(html, /NFT CHARACTER \+ WORK TCG \+ CITY ECONOMY/);
   assert.match(html, /og\.png/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton|Starter Project/i);
 });
 
-test("keeps the player, career, WebGL, soundtrack, and HookTech engines in source", async () => {
-  const [game, threeEngine, soundEngine, data, layout, packageJson] = await Promise.all([
+test("keeps the NFT, unique card, corporate, WebGL, soundtrack, and HookTech engines in source", async () => {
+  const [game, cards, companies, wallet, threeEngine, soundEngine, data, layout, packageJson] = await Promise.all([
     readFile(new URL("../app/rhoos-live-city.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/tcg-data.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/corporate-data.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/nft-wallet.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/rhoos-three-engine.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/rhoos-sound-engine.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/game-data.ts", import.meta.url), "utf8"),
@@ -45,10 +48,12 @@ test("keeps the player, career, WebGL, soundtrack, and HookTech engines in sourc
   ]);
 
   assert.match(game, /createRhoosThreeEngine/);
-  assert.match(game, /hitWorkGame/);
+  assert.match(game, /playWorkCard/);
+  assert.match(game, /cardLiveBonus/);
+  assert.match(game, /createCardInstance/);
   assert.match(game, /CAREER_TRACKS/);
   assert.match(game, /defaultProfile/);
-  assert.match(game, /PLAYER \/ CAREER ENGINE/);
+  assert.match(game, /NFT CHARACTER \/ WORK TCG/);
   assert.match(game, /career-match-badge/);
   assert.match(game, /requestPointerLock/);
   assert.match(game, /function runEconomy/);
@@ -64,7 +69,14 @@ test("keeps the player, career, WebGL, soundtrack, and HookTech engines in sourc
   assert.match(data, /HOOK_MODULES/);
   assert.match(data, /Shift-to-Earn/);
   assert.match(data, /Traffic Oracle/);
-  assert.match(layout, /Player & Career Engine/);
+  assert.match(cards, /CITY_CARDS/);
+  assert.match(cards, /STARTER_DECK/);
+  assert.match(companies, /JPMorgan Chase/);
+  assert.match(companies, /District Boss/);
+  assert.match(wallet, /eth_requestAccounts/);
+  assert.match(wallet, /0x6352211e/);
+  assert.doesNotMatch(wallet, /eth_sendTransaction|wallet_sendCalls/);
+  assert.match(layout, /NFT Work TCG/);
   assert.match(layout, /summary_large_image/);
   assert.match(packageJson, /"name": "rhoos-city"/);
 });

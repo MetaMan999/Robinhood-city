@@ -26,6 +26,26 @@ import {
 } from "./game-data";
 import type { RhoosThreeEngine } from "./rhoos-three-engine";
 import { RhoosSoundEngine } from "./rhoos-sound-engine";
+import {
+  CITY_CARDS,
+  SECTOR_COLORS,
+  STARTER_COLLECTION,
+  STARTER_DECK,
+  getCard,
+  type CityCard,
+} from "./tcg-data";
+import {
+  connectWallet,
+  shortAddress,
+  verifyErc721Owner,
+  type WalletIdentity,
+} from "./nft-wallet";
+import {
+  CORPORATE_COMPANIES,
+  CORPORATE_ROLES,
+  corporateRole,
+  type CorporateCompany,
+} from "./corporate-data";
 
 const VIEW_W = 1280;
 const VIEW_H = 720;
@@ -35,7 +55,7 @@ const CAMERA_HEIGHT = 46;
 const SAVE_KEY = "rhoos-city-hooktech-v3";
 const TAU = Math.PI * 2;
 
-type Panel = null | "building" | "jobs" | "hooks" | "map" | "player";
+type Panel = null | "building" | "jobs" | "hooks" | "map" | "player" | "cards";
 type Weather = "CLEAR" | "MIST" | "RAIN";
 type CareerId = "operator" | "courier" | "merchant" | "analyst" | "founder";
 
@@ -78,12 +98,40 @@ type HookPacket = {
 
 type WorkGame = {
   jobId: string;
-  needle: number;
-  direction: 1 | -1;
-  target: number;
-  score: number;
-  attempts: number;
-  timeLeft: number;
+  round: number;
+  energy: number;
+  playerScore: number;
+  rivalScore: number;
+  hand: string[];
+  played: string[];
+  message: string;
+};
+
+type NftCharacter = {
+  contract: string;
+  tokenId: string;
+  owner: string;
+  chainId: string;
+  name: string;
+  imageUrl: string;
+  verified: boolean;
+};
+
+type TcgProgress = {
+  credits: number;
+  rating: number;
+  wins: number;
+  losses: number;
+  collection: string[];
+  deck: string[];
+  cardInstances: Record<string, CardInstance>;
+};
+
+type CardInstance = {
+  serial: string;
+  xp: number;
+  plays: number;
+  wins: number;
 };
 
 const CAREER_TRACKS: CareerTrack[] = [
@@ -167,6 +215,23 @@ function careerProgress(xp: number) {
   return ((xp % 120) / 120) * 100;
 }
 
+function initialCardInstances() {
+  return Object.fromEntries(
+    STARTER_COLLECTION.map((id, index) => [
+      id,
+      {
+        serial: `D01-${String(index + 1).padStart(3, "0")}-${(id.length * 73 + index * 41)
+          .toString(16)
+          .toUpperCase()
+          .padStart(4, "0")}`,
+        xp: 0,
+        plays: 0,
+        wins: 0,
+      },
+    ]),
+  );
+}
+
 type Engine = {
   player: { x: number; y: number; angle: number; pitch: number };
   simMinutes: number;
@@ -177,6 +242,9 @@ type Engine = {
   energy: number;
   reputation: number;
   profile: CharacterProfile;
+  nftCharacter: NftCharacter | null;
+  tcg: TcgProgress;
+  corporate: { companyId: string | null; xp: number; shifts: number };
   selectedId: string;
   businesses: Record<string, BusinessState>;
   properties: string[];
@@ -229,6 +297,17 @@ function initialEngine(): Engine {
     energy: 90,
     reputation: 0,
     profile: defaultProfile(),
+    nftCharacter: null,
+    tcg: {
+      credits: 0,
+      rating: 800,
+      wins: 0,
+      losses: 0,
+      collection: [...STARTER_COLLECTION],
+      deck: [...STARTER_DECK],
+      cardInstances: initialCardInstances(),
+    },
+    corporate: { companyId: null, xp: 0, shifts: 0 },
     selectedId: "city-hall",
     businesses: makeInitialBusinesses(),
     properties: [],
@@ -266,6 +345,35 @@ function initialEngine(): Engine {
     elapsed: 0,
     moving: false,
     sprinting: false,
+  };
+}
+
+function cardLiveBonus(card: CityCard, engine: Engine) {
+  if (card.sector === "MOVE") return engine.traffic >= 65 ? 2 : engine.traffic >= 45 ? 1 : 0;
+  if (card.sector === "INDUSTRY") return engine.powerLoad <= 78 ? 2 : engine.powerLoad <= 90 ? 1 : 0;
+  if (card.sector === "MARKET") {
+    const demand =
+      Object.values(engine.businesses).reduce((sum, item) => sum + item.demand, 0) /
+      Math.max(1, Object.keys(engine.businesses).length);
+    return demand >= 66 ? 2 : demand >= 48 ? 1 : 0;
+  }
+  if (card.sector === "FINANCE") return engine.cityGDP >= 44000 ? 2 : engine.cityGDP >= 40000 ? 1 : 0;
+  return engine.installedHooks.includes(card.id) && !engine.disabledHooks.includes(card.id)
+    ? 2
+    : engine.installedHooks.length >= 3
+      ? 1
+      : 0;
+}
+
+function createCardInstance(cardId: string, engine: Engine): CardInstance {
+  const seed = engine.block * 17 + engine.tcg.wins * 97 + cardId.length * 31;
+  return {
+    serial: `D${String(engine.day).padStart(2, "0")}-${String(
+      engine.tcg.collection.length + 1,
+    ).padStart(3, "0")}-${seed.toString(16).toUpperCase().slice(-4).padStart(4, "0")}`,
+    xp: 0,
+    plays: 0,
+    wins: 0,
   };
 }
 
@@ -1077,6 +1185,12 @@ export default function RhoosLiveCity() {
   const [volume, setVolume] = useState(0.46);
   const [workGame, setWorkGame] = useState<WorkGame | null>(null);
   const [saveLabel, setSaveLabel] = useState("AUTO-SAVE READY");
+  const [walletIdentity, setWalletIdentity] = useState<WalletIdentity | null>(null);
+  const [walletMessage, setWalletMessage] = useState("CONNECT A WALLET TO VERIFY A CHARACTER NFT");
+  const [nftContract, setNftContract] = useState("");
+  const [nftTokenId, setNftTokenId] = useState("");
+  const [nftName, setNftName] = useState("District Origin");
+  const [nftImageUrl, setNftImageUrl] = useState("");
 
   const refresh = useCallback(() => setRevision((value) => value + 1), []);
 
@@ -1104,6 +1218,15 @@ export default function RhoosLiveCity() {
           ...saved,
           player: { ...base.player, ...saved.player },
           profile: { ...base.profile, ...saved.profile },
+          tcg: {
+            ...base.tcg,
+            ...saved.tcg,
+            cardInstances: {
+              ...base.tcg.cardInstances,
+              ...saved.tcg?.cardInstances,
+            },
+          },
+          corporate: { ...base.corporate, ...saved.corporate },
           businesses: { ...base.businesses, ...saved.businesses },
           installedHooks: saved.installedHooks ?? base.installedHooks,
           disabledHooks: saved.disabledHooks ?? [],
@@ -1141,32 +1264,6 @@ export default function RhoosLiveCity() {
     return () => window.clearInterval(interval);
   }, [saveGame]);
 
-  useEffect(() => {
-    if (!workGame) return;
-    const interval = window.setInterval(() => {
-      setWorkGame((current) => {
-        if (!current) return null;
-        let needle = current.needle + current.direction * 2.8;
-        let direction = current.direction;
-        if (needle >= 100) {
-          needle = 100;
-          direction = -1;
-        } else if (needle <= 0) {
-          needle = 0;
-          direction = 1;
-        }
-        const timeLeft = Math.max(0, current.timeLeft - 0.05);
-        if (timeLeft <= 0) {
-          addEvent(engineRef.current, "Shift console timed out. Contract remains active.");
-          soundRef.current?.blip("error");
-          return null;
-        }
-        return { ...current, needle, direction, timeLeft };
-      });
-    }, 50);
-    return () => window.clearInterval(interval);
-  }, [workGame?.jobId]);
-
   const interact = useCallback(() => {
     const engine = engineRef.current;
     const focused = getFocusedBuilding(engine);
@@ -1196,17 +1293,21 @@ export default function RhoosLiveCity() {
       !engine.activeJob.working
     ) {
       setPanel(null);
+      const deck = engine.tcg.deck.length >= 6 ? engine.tcg.deck : STARTER_DECK;
+      const offset = engine.jobsCompleted % deck.length;
+      const hand = [...deck.slice(offset), ...deck.slice(0, offset)].slice(0, 5);
       setWorkGame({
         jobId: activeJob.id,
-        needle: 4,
-        direction: 1,
-        target: 42,
-        score: 0,
-        attempts: 0,
-        timeLeft: 22,
+        round: 1,
+        energy: 3,
+        playerScore: 0,
+        rivalScore: 0,
+        hand,
+        played: [],
+        message: "Choose a card. Build more verified output than the shift rival.",
       });
       soundRef.current?.blip("interact");
-      addEvent(engine, `${activeJob.title} work console opened.`);
+      addEvent(engine, `${activeJob.title} card shift opened.`);
     } else {
       soundRef.current?.blip("interact");
       addEvent(engine, `${target.building.name} terminal connected.`);
@@ -1231,6 +1332,7 @@ export default function RhoosLiveCity() {
           "j",
           "m",
           "p",
+          "c",
           " ",
           "arrowleft",
           "arrowright",
@@ -1248,9 +1350,8 @@ export default function RhoosLiveCity() {
       if (key === "j") setPanel((current) => (current === "jobs" ? null : "jobs"));
       if (key === "m") setPanel((current) => (current === "map" ? null : "map"));
       if (key === "p") setPanel((current) => (current === "player" ? null : "player"));
-      if (key === " " && workGame) {
-        hitWorkGame();
-      } else if (key === " ") {
+      if (key === "c") setPanel((current) => (current === "cards" ? null : "cards"));
+      if (key === " " && !workGame) {
         engineRef.current.paused = !engineRef.current.paused;
         refresh();
       }
@@ -1296,12 +1397,28 @@ export default function RhoosLiveCity() {
       ? Math.round(job.pay * 0.15)
       : 0;
     const careerBonus = aligned ? Math.round(job.pay * track.payBonus) : 0;
-    const totalPay = job.pay + hookBonus + careerBonus;
+    const company = CORPORATE_COMPANIES.find(
+      (candidate) => candidate.id === engine.corporate.companyId,
+    );
+    const companyAligned = company?.buildingId === job.buildingId;
+    const roleBefore = corporateRole(engine.corporate.xp);
+    const corporateBonus = companyAligned
+      ? Math.round(job.pay * roleBefore.payBonus)
+      : 0;
+    const totalPay = job.pay + hookBonus + careerBonus + corporateBonus;
     engine.cash += totalPay;
     engine.reputation += job.reputation;
     engine.profile.careerXp += aligned ? 34 : 18;
     engine.profile.totalEarned += totalPay;
     engine.profile.workStreak += 1;
+    if (companyAligned) {
+      engine.corporate.xp += 32;
+      engine.corporate.shifts += 1;
+      const roleAfter = corporateRole(engine.corporate.xp);
+      if (roleAfter.level > roleBefore.level) {
+        addEvent(engine, `${company?.name}: promoted to ${roleAfter.title}.`);
+      }
+    }
     engine.energy = clamp(engine.energy - 13, 0, 100);
     engine.jobsCompleted += 1;
     engine.businesses[job.buildingId].cash -= job.pay;
@@ -1319,6 +1436,9 @@ export default function RhoosLiveCity() {
     }
     if (careerBonus) {
       addEvent(engine, `${track.code} career bonus +${formatMoney(careerBonus)}.`);
+    }
+    if (corporateBonus) {
+      addEvent(engine, `${roleBefore.title} bonus +${formatMoney(corporateBonus)}.`);
     }
     engine.activeJob = null;
     soundRef.current?.blip("reward");
@@ -1433,6 +1553,9 @@ export default function RhoosLiveCity() {
   const selected =
     BUILDINGS.find((building) => building.id === engine.selectedId) ?? BUILDINGS[0];
   const business = engine.businesses[selected.id];
+  const selectedCompany = CORPORATE_COMPANIES.find(
+    (company) => company.buildingId === selected.id,
+  );
   const activeJob = engine.activeJob
     ? JOBS.find((job) => job.id === engine.activeJob?.jobId)
     : null;
@@ -1440,6 +1563,10 @@ export default function RhoosLiveCity() {
     CAREER_TRACKS.find((career) => career.id === engine.profile.careerId) ??
     CAREER_TRACKS[0];
   const currentCareerLevel = careerLevel(engine.profile.careerXp);
+  const currentCompany = CORPORATE_COMPANIES.find(
+    (company) => company.id === engine.corporate.companyId,
+  );
+  const currentCorporateRole = corporateRole(engine.corporate.xp);
   const installedCount = engine.installedHooks.length;
   const activeHookCount = engine.installedHooks.filter(
     (id) => !engine.disabledHooks.includes(id),
@@ -1467,6 +1594,28 @@ export default function RhoosLiveCity() {
     addEvent(engine, `${career.name} career track activated.`);
     soundRef.current?.blip("hook");
     setSaveLabel("CAREER UPDATED");
+    refresh();
+  }
+
+  function joinCompany(company: CorporateCompany) {
+    if (engine.activeJob) {
+      setWalletMessage("FINISH THE ACTIVE CONTRACT BEFORE CHANGING COMPANIES");
+      soundRef.current?.blip("error");
+      return;
+    }
+    const switching = engine.corporate.companyId && engine.corporate.companyId !== company.id;
+    engine.corporate.companyId = company.id;
+    if (switching) engine.corporate.xp = Math.floor(engine.corporate.xp * 0.8);
+    engine.selectedId = company.buildingId;
+    addEvent(
+      engine,
+      `${company.name} career activated at ${
+        BUILDINGS.find((building) => building.id === company.buildingId)?.name
+      }.`,
+    );
+    setWalletMessage(`${company.ticker} CAREER ACTIVE / REPORT TO HQ`);
+    soundRef.current?.blip("hook");
+    setSaveLabel("CAREER UNSAVED");
     refresh();
   }
 
@@ -1578,45 +1727,163 @@ export default function RhoosLiveCity() {
     canvasRef.current?.focus();
   }
 
-  function hitWorkGame() {
-    if (!workGame) return;
-    const accuracy = Math.abs(workGame.needle - workGame.target);
-    const points = accuracy <= 7 ? 2 : accuracy <= 17 ? 1 : 0;
-    const score = workGame.score + points;
-    const attempts = workGame.attempts + 1;
-    if (points) soundRef.current?.blip(points === 2 ? "reward" : "interact");
-    else soundRef.current?.blip("error");
+  function playWorkCard(card: CityCard) {
+    if (!workGame || workGame.played.includes(card.id) || card.cost > workGame.energy) {
+      soundRef.current?.blip("error");
+      return;
+    }
+    const job = JOBS.find((item) => item.id === workGame.jobId);
+    const building = BUILDINGS.find((item) => item.id === job?.buildingId);
+    if (!job || !building) return;
+    const sectorMatch =
+      (building.kind === "transport" && card.sector === "MOVE") ||
+      ((building.kind === "industry" || building.kind === "utility") &&
+        card.sector === "INDUSTRY") ||
+      ((building.kind === "commerce" || building.kind === "entertainment") &&
+        card.sector === "MARKET") ||
+      ((building.kind === "finance" || building.kind === "civic") &&
+        card.sector === "FINANCE");
+    const hookBound =
+      card.sector === "HOOK" &&
+      engine.installedHooks.some((id) => card.id.includes(id) || id.includes(card.id));
+    const liveBonus = cardLiveBonus(card, engine);
+    const instance = engine.tcg.cardInstances[card.id];
+    const masteryBonus = instance ? Math.min(2, Math.floor(instance.xp / 80)) : 0;
+    const output =
+      card.work + liveBonus + masteryBonus + (sectorMatch ? 2 : 0) + (hookBound ? 2 : 0);
+    if (instance) {
+      instance.plays += 1;
+      instance.xp += 10 + liveBonus * 2;
+    }
+    const rivalOutput = Math.max(
+      1,
+      4 + workGame.round * 2 + job.requiredReputation - Math.floor(card.guard / 2),
+    );
+    const playerScore = workGame.playerScore + output;
+    const rivalScore = workGame.rivalScore + rivalOutput;
+    const played = [...workGame.played, card.id];
+    soundRef.current?.blip(output >= 7 ? "reward" : "interact");
 
-    if (score >= 6) {
-      const active = engineRef.current.activeJob;
-      const job = JOBS.find((item) => item.id === active?.jobId);
-      if (active && job) {
-        active.working = true;
-        active.progress = job.duration;
-        addEvent(
-          engineRef.current,
-          `${job.title} performance verified ${score}/6.`,
+    if (workGame.round >= 3) {
+      const won = playerScore >= rivalScore;
+      if (won) {
+        const active = engine.activeJob;
+        if (active) {
+          active.working = true;
+          active.progress = job.duration;
+        }
+        const creditReward = 40 + job.requiredReputation * 10;
+        engine.tcg.credits += creditReward;
+        engine.tcg.wins += 1;
+        engine.tcg.rating += 18;
+        for (const playedId of played) {
+          const playedInstance = engine.tcg.cardInstances[playedId];
+          if (playedInstance) {
+            playedInstance.wins += 1;
+            playedInstance.xp += 14;
+          }
+        }
+        const locked = CITY_CARDS.filter(
+          (candidate) => !engine.tcg.collection.includes(candidate.id),
         );
+        if (locked.length && engine.tcg.wins % 2 === 1) {
+          const unlocked = locked[(engine.tcg.wins + job.id.length) % locked.length];
+          engine.tcg.collection.push(unlocked.id);
+          engine.tcg.cardInstances[unlocked.id] = createCardInstance(unlocked.id, engine);
+          addEvent(engine, `NEW CARD UNLOCKED: ${unlocked.name}.`);
+        }
+        addEvent(engine, `${job.title} TCG shift won ${playerScore}–${rivalScore}. +${creditReward} RHO.`);
+        setWorkGame(null);
+        refresh();
+      } else {
+        engine.tcg.losses += 1;
+        engine.tcg.rating = Math.max(700, engine.tcg.rating - 8);
+        addEvent(engine, `${job.title} shift lost ${playerScore}–${rivalScore}. Contract remains active.`);
+        setWorkGame(null);
+        soundRef.current?.blip("error");
+        refresh();
       }
-      setWorkGame(null);
-      refresh();
       return;
     }
-    if (attempts >= 8) {
-      addEvent(
-        engineRef.current,
-        `Shift verification failed ${score}/6. Retry at the terminal.`,
-      );
-      setWorkGame(null);
-      refresh();
-      return;
-    }
+
+    const remaining = workGame.hand.filter((id) => !played.includes(id));
     setWorkGame({
       ...workGame,
-      score,
-      attempts,
-      target: 18 + ((attempts * 37 + workGame.jobId.length * 11) % 65),
+      round: workGame.round + 1,
+      energy: Math.min(4, 2 + workGame.round),
+      playerScore,
+      rivalScore,
+      played,
+      message: `${card.name} created ${output} output (${liveBonus ? `LIVE +${liveBonus}` : "LIVE STABLE"}). Rival answered with ${rivalOutput}.`,
+      hand: remaining.length >= 2 ? workGame.hand : [...workGame.hand, ...engine.tcg.deck.slice(0, 2)],
     });
+  }
+
+  function toggleDeckCard(cardId: string) {
+    const deck = engine.tcg.deck;
+    if (deck.includes(cardId)) {
+      if (deck.length <= 6) {
+        setWalletMessage("A WORK DECK NEEDS AT LEAST 6 CARDS");
+        soundRef.current?.blip("error");
+        return;
+      }
+      engine.tcg.deck = deck.filter((id) => id !== cardId);
+    } else {
+      if (deck.length >= 10) {
+        setWalletMessage("DECK LIMIT REACHED: 10 CARDS");
+        soundRef.current?.blip("error");
+        return;
+      }
+      engine.tcg.deck = [...deck, cardId];
+    }
+    setSaveLabel("DECK UNSAVED");
+    soundRef.current?.blip("interact");
+    refresh();
+  }
+
+  async function connectCharacterWallet() {
+    try {
+      setWalletMessage("WAITING FOR WALLET APPROVAL…");
+      const identity = await connectWallet();
+      setWalletIdentity(identity);
+      setWalletMessage(`CONNECTED ${shortAddress(identity.account)} / CHAIN ${parseInt(identity.chainId, 16)}`);
+      soundRef.current?.blip("hook");
+    } catch (error) {
+      setWalletMessage(error instanceof Error ? error.message.toUpperCase() : "WALLET CONNECTION FAILED");
+      soundRef.current?.blip("error");
+    }
+  }
+
+  async function verifyCharacterNft() {
+    if (!walletIdentity) {
+      await connectCharacterWallet();
+      return;
+    }
+    try {
+      setWalletMessage("CHECKING ERC-721 OWNERSHIP…");
+      const owner = await verifyErc721Owner({
+        contract: nftContract.trim(),
+        tokenId: nftTokenId.trim(),
+        account: walletIdentity.account,
+      });
+      engine.nftCharacter = {
+        contract: nftContract.trim(),
+        tokenId: nftTokenId.trim(),
+        owner,
+        chainId: walletIdentity.chainId,
+        name: nftName.trim() || `Character #${nftTokenId.trim()}`,
+        imageUrl: normalizeCharacterImage(nftImageUrl),
+        verified: true,
+      };
+      setWalletMessage(`OWNERSHIP VERIFIED / TOKEN #${nftTokenId.trim()}`);
+      addEvent(engine, `NFT character ${engine.nftCharacter.name} entered District One.`);
+      soundRef.current?.blip("reward");
+      setSaveLabel("NFT CHARACTER UNSAVED");
+      refresh();
+    } catch (error) {
+      setWalletMessage(error instanceof Error ? error.message.toUpperCase() : "NFT VERIFICATION FAILED");
+      soundRef.current?.blip("error");
+    }
   }
 
   const jobProgress =
@@ -1643,7 +1910,7 @@ export default function RhoosLiveCity() {
           <div className="live-brand">
             <div className="live-logo">R</div>
             <div>
-              <span>RHOOS PROTOCOL / DISTRICT 01</span>
+              <span>RHOOS PROTOCOL / NEO-MANHATTAN 01</span>
               <strong>RHOOS CITY</strong>
             </div>
           </div>
@@ -1655,12 +1922,12 @@ export default function RhoosLiveCity() {
           <button
             type="button"
             className="live-wallet"
-            onClick={() => setPanel("player")}
-            aria-label="Open player character and career"
+            onClick={() => setPanel("cards")}
+            aria-label="Open NFT character and card deck"
           >
-            <span>{engine.profile.callSign} / LV.{currentCareerLevel}</span>
-            <strong>{engine.profile.name}</strong>
-            <small>{currentCareer.code} / {formatMoney(engine.cash)} / REP {String(engine.reputation).padStart(2, "0")}</small>
+            <span>{engine.nftCharacter?.verified ? "NFT CHARACTER VERIFIED" : "ORIGIN CHARACTER / NFT READY"}</span>
+            <strong>{engine.nftCharacter?.name ?? engine.profile.name}</strong>
+            <small>{engine.tcg.credits} RHO / RATING {engine.tcg.rating} / {shortAddress(walletIdentity?.account ?? "")}</small>
           </button>
           <div className="top-actions">
             <button onClick={toggleAudio}>{audioOn ? "MUSIC ON" : "MUSIC OFF"}</button>
@@ -1746,6 +2013,9 @@ export default function RhoosLiveCity() {
           <button className={panel === "jobs" ? "active" : ""} onClick={() => setPanel(panel === "jobs" ? null : "jobs")}>
             <b>J</b><span>JOBS</span>
           </button>
+          <button className={panel === "cards" ? "active" : ""} onClick={() => setPanel(panel === "cards" ? null : "cards")}>
+            <b>C</b><span>CARDS</span>
+          </button>
           <button className={panel === "hooks" ? "active" : ""} onClick={() => setPanel(panel === "hooks" ? null : "hooks")}>
             <b>H</b><span>HOOKTECH</span>
           </button>
@@ -1823,7 +2093,11 @@ export default function RhoosLiveCity() {
           <div className="live-panel-backdrop" onMouseDown={() => setPanel(null)}>
             <section
               className={`live-panel ${
-                panel === "map" ? "map-panel" : panel === "player" ? "player-panel" : ""
+                panel === "map"
+                  ? "map-panel"
+                  : panel === "player" || panel === "cards"
+                    ? "player-panel"
+                    : ""
               }`}
               onMouseDown={(event) => event.stopPropagation()}
               role="dialog"
@@ -1840,6 +2114,8 @@ export default function RhoosLiveCity() {
                         ? "CITY JOBS CHANNEL"
                         : panel === "hooks"
                           ? "HOOKTECH MATRIX"
+                          : panel === "cards"
+                            ? "NFT CHARACTER / WORK TCG"
                           : panel === "player"
                             ? "PLAYER / CAREER ENGINE"
                             : "DISTRICT ONE MAP"}
@@ -1854,6 +2130,11 @@ export default function RhoosLiveCity() {
                     <div>{selected.shortName.slice(0, 2)}</div>
                     <span>{selected.kind.toUpperCase()}</span>
                     <h2>{selected.name}</h2>
+                    {selectedCompany && (
+                      <b className="corporate-tenant">
+                        {selectedCompany.name} / {selectedCompany.ticker} PROTOTYPE HQ
+                      </b>
+                    )}
                     <p>{selected.description}</p>
                     <small>{isOpen(selected, time.hour) ? "● OPEN NOW" : "○ CLOSED"} / {nearSelected ? "LOCAL LINK" : "REMOTE VIEW"}</small>
                   </div>
@@ -1888,6 +2169,186 @@ export default function RhoosLiveCity() {
                       )}
                     </div>
                   </div>
+                </div>
+              )}
+
+              {panel === "cards" && (
+                <div className="tcg-engine">
+                  <section className="nft-passport">
+                    <div className={`character-card-frame ${engine.nftCharacter?.verified ? "verified" : ""}`}>
+                      <div className="character-card-kicker">
+                        <span>{engine.nftCharacter?.verified ? "VERIFIED ERC-721" : "CITY ORIGIN"}</span>
+                        <b>{engine.nftCharacter?.verified ? `#${engine.nftCharacter.tokenId}` : "FREE STARTER"}</b>
+                      </div>
+                      <div className="character-card-art">
+                        {engine.nftCharacter?.imageUrl ? (
+                          <img src={engine.nftCharacter.imageUrl} alt={engine.nftCharacter.name} />
+                        ) : (
+                          <div
+                            className="character-avatar tcg-avatar"
+                            style={
+                              {
+                                "--avatar-skin": engine.profile.skin,
+                                "--avatar-hair": engine.profile.hair,
+                                "--avatar-jacket": engine.profile.jacket,
+                                "--avatar-accent": engine.profile.accent,
+                              } as React.CSSProperties
+                            }
+                          >
+                            <i className="avatar-shadow" />
+                            <i className="avatar-leg left" />
+                            <i className="avatar-leg right" />
+                            <i className="avatar-body" />
+                            <i className="avatar-arm left" />
+                            <i className="avatar-arm right" />
+                            <i className="avatar-neck" />
+                            <i className="avatar-head" />
+                            <i className="avatar-hair" />
+                            <i className="avatar-eye left" />
+                            <i className="avatar-eye right" />
+                            <i className="avatar-badge" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="character-card-title">
+                        <span>PLAYABLE CHARACTER</span>
+                        <strong>{engine.nftCharacter?.name ?? engine.profile.name}</strong>
+                        <p>{currentCareer.name} / LV.{currentCareerLevel}</p>
+                      </div>
+                      <div className="character-card-stats">
+                        <div><span>ENERGY</span><strong>{Math.round(engine.energy)}</strong></div>
+                        <div><span>REP</span><strong>{engine.reputation}</strong></div>
+                        <div><span>RATING</span><strong>{engine.tcg.rating}</strong></div>
+                      </div>
+                    </div>
+
+                    <div className="wallet-console">
+                      <span>NFT CHARACTER LINK</span>
+                      <h2>Bring your character. Keep your city.</h2>
+                      <p>
+                        Connect a browser wallet and verify ownership of any ERC-721
+                        character. The game only reads ownership; it never requests a
+                        transfer or approval.
+                      </p>
+                      <button className="wallet-connect" onClick={() => void connectCharacterWallet()}>
+                        {walletIdentity ? `CONNECTED ${shortAddress(walletIdentity.account)}` : "CONNECT WALLET"}
+                      </button>
+                      <div className="nft-fields">
+                        <label>
+                          <span>ERC-721 CONTRACT</span>
+                          <input value={nftContract} onChange={(event) => setNftContract(event.target.value)} placeholder="0x…" />
+                        </label>
+                        <label>
+                          <span>TOKEN ID</span>
+                          <input value={nftTokenId} onChange={(event) => setNftTokenId(event.target.value)} placeholder="42" />
+                        </label>
+                        <label>
+                          <span>CHARACTER NAME</span>
+                          <input value={nftName} onChange={(event) => setNftName(event.target.value)} maxLength={28} />
+                        </label>
+                        <label>
+                          <span>IMAGE URL / IPFS</span>
+                          <input value={nftImageUrl} onChange={(event) => setNftImageUrl(event.target.value)} placeholder="https://… or ipfs://…" />
+                        </label>
+                      </div>
+                      <button className="nft-verify" onClick={() => void verifyCharacterNft()}>
+                        VERIFY OWNERSHIP + EQUIP CHARACTER
+                      </button>
+                      <small>{walletMessage}</small>
+                      <div className="economy-safety">
+                        PROTOTYPE REWARDS ARE DEVICE-LOCAL GAME CREDITS WITH NO CASH
+                        VALUE. NO MINTING, TOKEN TRANSFERS, OR AUTOMATIC SPENDING.
+                      </div>
+                    </div>
+                  </section>
+
+                  <section className="corporate-city">
+                    <div className="corporate-heading">
+                      <div>
+                        <span>MANHATTAN-STYLE CORPORATE DISTRICT / CAREER LADDER</span>
+                        <h2>Work your way to the top.</h2>
+                        <p>
+                          Choose a prototype public-company workplace, report to its
+                          city HQ, win job shifts, and progress from intern to District
+                          Boss. Higher roles add larger in-game wage bonuses and card value.
+                        </p>
+                      </div>
+                      <div className="boss-progress">
+                        <span>{currentCompany?.ticker ?? "NO COMPANY"}</span>
+                        <strong>{currentCorporateRole.title}</strong>
+                        <b>{engine.corporate.xp} CAREER XP / +{Math.round(currentCorporateRole.payBonus * 100)}% HQ PAY</b>
+                      </div>
+                    </div>
+                    <div className="role-ladder">
+                      {CORPORATE_ROLES.map((role) => (
+                        <div key={role.level} className={currentCorporateRole.level >= role.level ? "reached" : ""}>
+                          <span>LV.{role.level}</span>
+                          <strong>{role.title}</strong>
+                          <small>{role.xp} XP / +{Math.round(role.payBonus * 100)}%</small>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="company-grid">
+                      {CORPORATE_COMPANIES.map((company) => {
+                        const active = company.id === currentCompany?.id;
+                        const building = BUILDINGS.find((item) => item.id === company.buildingId);
+                        return (
+                          <button
+                            key={company.id}
+                            className={active ? "active" : ""}
+                            style={{ "--company-color": company.accent } as React.CSSProperties}
+                            onClick={() => joinCompany(company)}
+                          >
+                            <span>{company.ticker} / {company.sector}</span>
+                            <strong>{company.name}</strong>
+                            <p>{company.role} career / {building?.shortName} HQ</p>
+                            <b>{active ? `${currentCorporateRole.title.toUpperCase()} / ACTIVE` : "JOIN COMPANY"}</b>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <small className="affiliation-note">
+                      TEXT-ONLY PROTOTYPE WORKPLACES FOR GAMEPLAY. NOT AFFILIATED WITH,
+                      ENDORSED BY, OR SPONSORED BY THE COMPANIES OR S&amp;P DOW JONES INDICES.
+                      NO LIVE STOCK PRICES OR INVESTMENT PRODUCTS.
+                    </small>
+                  </section>
+
+                  <section className="deck-workbench">
+                    <div className="deck-heading">
+                      <div>
+                        <span>CITY CARD COLLECTION / {engine.tcg.collection.length}/{CITY_CARDS.length}</span>
+                        <h2>Build your work deck.</h2>
+                        <p>
+                          Equip 6–10 unique serialized cards. Their live stats react
+                          to traffic, grid load, demand, city output, and active HookTech.
+                        </p>
+                      </div>
+                      <div className="tcg-record">
+                        <strong>{engine.tcg.wins}–{engine.tcg.losses}</strong>
+                        <span>SHIFT RECORD</span>
+                        <b>{engine.tcg.deck.length}/10 DECK</b>
+                      </div>
+                    </div>
+                    <div className="card-collection">
+                      {CITY_CARDS.map((card) => {
+                        const owned = engine.tcg.collection.includes(card.id);
+                        const equipped = engine.tcg.deck.includes(card.id);
+                        return (
+                          <CityCardView
+                            key={card.id}
+                            card={card}
+                            owned={owned}
+                            equipped={equipped}
+                            instance={engine.tcg.cardInstances[card.id]}
+                            liveBonus={cardLiveBonus(card, engine)}
+                            careerLevel={currentCorporateRole.level}
+                            onClick={() => owned && toggleDeckCard(card.id)}
+                          />
+                        );
+                      })}
+                    </div>
+                  </section>
                 </div>
               )}
 
@@ -2242,41 +2703,63 @@ export default function RhoosLiveCity() {
 
         {workGame && (
           <div className="work-console-backdrop">
-            <section className="work-console" role="dialog" aria-modal="true" aria-labelledby="work-title">
+            <section className="work-console tcg-battle" role="dialog" aria-modal="true" aria-labelledby="work-title">
               <div className="work-console-header">
                 <div>
-                  <span>LIVE SHIFT / SKILL VERIFICATION</span>
+                  <span>LIVE SHIFT / CITY CARD ENCOUNTER</span>
                   <strong id="work-title">
                     {JOBS.find((job) => job.id === workGame.jobId)?.title}
                   </strong>
                 </div>
-                <b>{workGame.timeLeft.toFixed(1)}s</b>
+                <b>ROUND {workGame.round}/3</b>
               </div>
-              <div className="work-machine">
-                <div className="machine-readout">
-                  <span>PERFORMANCE</span>
-                  <strong>{workGame.score}/6</strong>
-                  <small>ATTEMPT {workGame.attempts + 1}/8</small>
+              <div className="tcg-scoreboard">
+                <div>
+                  <span>YOUR OUTPUT</span>
+                  <strong>{workGame.playerScore}</strong>
+                  <small>{engine.nftCharacter?.name ?? engine.profile.name}</small>
                 </div>
-                <div className="timing-track">
-                  <i
-                    className="target-zone"
-                    style={{ left: `${workGame.target - 8}%` }}
-                  />
-                  <b style={{ left: `${workGame.needle}%` }} />
+                <i>VS</i>
+                <div>
+                  <span>SHIFT PRESSURE</span>
+                  <strong>{workGame.rivalScore}</strong>
+                  <small>DISTRICT AUTOMATION</small>
                 </div>
-                <p>
-                  Lock the signal while the white needle crosses the green work zone.
-                  Precise timing earns two performance points.
-                </p>
-                <button onClick={hitWorkGame}>LOCK ACTION <span>SPACE</span></button>
+              </div>
+              <div className="tcg-battlefield">
+                <div className="battle-message">
+                  <span>{workGame.energy} ENERGY AVAILABLE</span>
+                  <p>{workGame.message}</p>
+                </div>
+                <div className="battle-hand">
+                  {workGame.hand
+                    .map((id) => getCard(id))
+                    .filter((card): card is CityCard => Boolean(card))
+                    .map((card) => (
+                      <CityCardView
+                        key={`${card.id}-${workGame.round}`}
+                        card={card}
+                        owned
+                        equipped={!workGame.played.includes(card.id)}
+                        instance={engine.tcg.cardInstances[card.id]}
+                        liveBonus={cardLiveBonus(card, engine)}
+                        careerLevel={currentCorporateRole.level}
+                        compact
+                        disabled={
+                          workGame.played.includes(card.id) ||
+                          card.cost > workGame.energy
+                        }
+                        onClick={() => playWorkCard(card)}
+                      />
+                    ))}
+                </div>
               </div>
               <div className="work-console-footer">
-                <span>HOOKTECH VERIFIES THE ACTION, THE BUSINESS PAYS THE WAGE.</span>
+                <span>WIN THE THREE-ROUND ENCOUNTER TO VERIFY WORK, EARN WAGES, XP, AND DEVICE-LOCAL RHO CREDITS.</span>
                 <button
                   onClick={() => {
                     setWorkGame(null);
-                    addEvent(engineRef.current, "Shift console closed. Contract remains active.");
+                    addEvent(engineRef.current, "Card shift closed. Contract remains active.");
                   }}
                 >
                   EXIT SHIFT
@@ -2290,28 +2773,29 @@ export default function RhoosLiveCity() {
           <div className="live-intro">
             <div className="intro-city-lines" aria-hidden="true" />
             <div className="intro-protocol">
-              <span>HOOKTECH OPERATING SYSTEM / BOOT SEQUENCE 88</span>
+              <span>HOOKTECH CARD PROTOCOL / BOOT SEQUENCE 88</span>
               <strong>RHOOS</strong>
               <strong>CITY</strong>
-              <p>MULTI-SYSTEM PLAYER ENGINE</p>
+              <p>NFT WORK TCG / LIVING CITY ENGINE</p>
             </div>
             <div className="intro-brief">
               <span className="panel-label">DISTRICT ONE / 06:52</span>
-              <h1>Build a life.<br />Build the city.</h1>
+              <h1>Play a card.<br />Build a life.</h1>
               <p>
-                Create your character, choose a profession, work skill-based
-                shifts, grow a career, own businesses, and program the economy.
+                Equip an NFT character or use a free city origin. Build a work
+                deck, play job encounters, grow a career, own businesses, and
+                program the economy.
               </p>
               <div className="intro-keys">
                 <div><kbd>WASD</kbd><span>MOVE</span></div>
                 <div><kbd>MOUSE</kbd><span>LOOK</span></div>
                 <div><kbd>E</kbd><span>INTERACT</span></div>
-                <div><kbd>H</kbd><span>HOOKTECH</span></div>
+                <div><kbd>C</kbd><span>CARDS</span></div>
               </div>
               <button onClick={() => void enterCity()}>
                 ENTER 3D CITY + MUSIC <b>→</b>
               </button>
-              <small>PLAYER + CAREER + WORK + ECONOMY ENGINE / VERSION 0.4</small>
+              <small>NFT CHARACTER + WORK TCG + CITY ECONOMY / VERSION 0.5</small>
             </div>
           </div>
         )}
@@ -2334,6 +2818,90 @@ function Telemetry({
       <span>{label}</span>
       <strong>{value}</strong>
     </div>
+  );
+}
+
+function normalizeCharacterImage(value: string) {
+  const url = value.trim();
+  if (!url) return "";
+  if (url.startsWith("ipfs://")) {
+    return `https://ipfs.io/ipfs/${url.slice("ipfs://".length)}`;
+  }
+  if (/^https:\/\//i.test(url) || /^data:image\//i.test(url)) return url;
+  return "";
+}
+
+function CityCardView({
+  card,
+  owned,
+  equipped,
+  compact = false,
+  disabled = false,
+  instance,
+  liveBonus = 0,
+  careerLevel = 0,
+  onClick,
+}: {
+  card: CityCard;
+  owned: boolean;
+  equipped: boolean;
+  compact?: boolean;
+  disabled?: boolean;
+  instance?: CardInstance;
+  liveBonus?: number;
+  careerLevel?: number;
+  onClick: () => void;
+}) {
+  const color = SECTOR_COLORS[card.sector];
+  return (
+    <button
+      type="button"
+      className={`city-card ${card.rarity.toLowerCase()} ${owned ? "" : "locked"} ${
+        equipped ? "equipped" : ""
+      } ${compact ? "compact" : ""}`}
+      style={{ "--card-color": color } as React.CSSProperties}
+      onClick={onClick}
+      disabled={disabled || !owned}
+      aria-label={`${card.name}, ${card.sector}, work ${card.work}, guard ${card.guard}`}
+    >
+      <span className="card-code">{owned ? card.code : "LOCKED"}</span>
+      <i className="card-cost">{card.cost}</i>
+      <div className="card-art" aria-hidden="true">
+        <b>{card.sector.slice(0, 3)}</b>
+        <i />
+        <i />
+        <i />
+      </div>
+      <strong>{owned ? card.name : "UNKNOWN CARD"}</strong>
+      <small>
+        {card.rarity} / {card.sector} {owned && instance ? `/ ${instance.serial}` : ""}
+      </small>
+      <p>{owned ? card.description : "Win card shifts to discover this city operation."}</p>
+      <div className="card-stats">
+        <span>WORK <b>{owned ? card.work + liveBonus : "?"}</b></span>
+        <span>GUARD <b>{owned ? card.guard : "?"}</b></span>
+      </div>
+      {owned && (
+        <div className="card-live">
+          <span>LIVE {liveBonus ? `+${liveBonus}` : "±0"}</span>
+          <b>XP {instance?.xp ?? 0} / {instance?.wins ?? 0}W</b>
+        </div>
+      )}
+      {owned && (
+        <div className="card-value">
+          CITY VALUE{" "}
+          {Math.round(
+            (card.rarity === "EPIC" ? 900 : card.rarity === "RARE" ? 520 : 260) +
+              (instance?.xp ?? 0) * 4 +
+              (instance?.wins ?? 0) * 45 +
+              careerLevel * 120 +
+              liveBonus * 30,
+          ).toLocaleString()}{" "}
+          CV
+        </div>
+      )}
+      {!compact && <em>{equipped ? "IN WORK DECK" : owned ? "ADD TO DECK" : "NOT OWNED"}</em>}
+    </button>
   );
 }
 

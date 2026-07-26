@@ -2240,3 +2240,828 @@ kbd {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* RHOOS CITY / NFT WORK TCG */
+.tcg-engine {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  background:
+    linear-gradient(rgba(103, 215, 229, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(103, 215, 229, 0.03) 1px, transparent 1px),
+    #0d121d;
+  background-size: 28px 28px;
+}
+
+.nft-passport {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  gap: 20px;
+  padding: 22px;
+  border-bottom: 1px solid var(--line);
+  background:
+    radial-gradient(circle at 12% 42%, rgba(255, 93, 158, 0.15), transparent 25%),
+    linear-gradient(120deg, rgba(103, 215, 229, 0.08), transparent 55%);
+}
+
+.character-card-frame {
+  position: relative;
+  min-height: 430px;
+  padding: 12px;
+  border: 2px solid var(--cyan);
+  background:
+    linear-gradient(135deg, rgba(103, 215, 229, 0.14), transparent 45%),
+    #131a28;
+  box-shadow:
+    8px 8px 0 rgba(0, 0, 0, 0.35),
+    inset 0 0 35px rgba(103, 215, 229, 0.05);
+}
+
+.character-card-frame.verified {
+  border-color: var(--gold);
+  background:
+    linear-gradient(135deg, rgba(244, 211, 94, 0.15), transparent 45%),
+    #171a24;
+  box-shadow:
+    8px 8px 0 rgba(0, 0, 0, 0.35),
+    0 0 22px rgba(244, 211, 94, 0.12);
+}
+
+.character-card-kicker,
+.character-card-title span,
+.character-card-title p,
+.character-card-stats span {
+  font-size: 6px;
+  letter-spacing: 0.12em;
+}
+
+.character-card-kicker {
+  display: flex;
+  justify-content: space-between;
+  color: var(--cyan);
+}
+
+.character-card-frame.verified .character-card-kicker {
+  color: var(--gold);
+}
+
+.character-card-art {
+  height: 260px;
+  display: grid;
+  place-items: center;
+  margin: 10px 0 12px;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--line-hi);
+  background:
+    radial-gradient(circle at 50% 32%, rgba(103, 215, 229, 0.25), transparent 32%),
+    linear-gradient(145deg, #29334b, #0b101a 70%);
+}
+
+.character-card-art::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(115deg, transparent 0 18px, rgba(255,255,255,.035) 19px 20px);
+}
+
+.character-card-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.tcg-avatar {
+  transform: scale(0.88) translateY(10px);
+}
+
+.character-card-title > span {
+  color: var(--pink);
+}
+
+.character-card-title strong {
+  display: block;
+  margin: 4px 0;
+  font-family: Arial Black, Impact, sans-serif;
+  font-size: 21px;
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
+
+.character-card-title p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.character-card-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin-top: 12px;
+  border: 1px solid var(--line);
+}
+
+.character-card-stats > div {
+  padding: 8px;
+  border-right: 1px solid var(--line);
+}
+
+.character-card-stats > div:last-child {
+  border-right: 0;
+}
+
+.character-card-stats span,
+.character-card-stats strong {
+  display: block;
+}
+
+.character-card-stats span {
+  color: var(--muted);
+}
+
+.character-card-stats strong {
+  margin-top: 3px;
+  color: var(--gold);
+  font-size: 13px;
+}
+
+.wallet-console {
+  align-self: center;
+  padding: 4px 12px;
+}
+
+.wallet-console > span,
+.deck-heading > div > span,
+.battle-message span {
+  color: var(--cyan);
+  font-size: 7px;
+  letter-spacing: 0.14em;
+}
+
+.wallet-console h2,
+.deck-heading h2 {
+  margin: 7px 0 8px;
+  font-family: Arial Black, Impact, sans-serif;
+  font-size: clamp(28px, 4vw, 48px);
+  line-height: 0.95;
+}
+
+.wallet-console > p,
+.deck-heading p {
+  max-width: 670px;
+  margin: 0 0 14px;
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.55;
+}
+
+.wallet-connect,
+.nft-verify {
+  min-height: 40px;
+  border: 1px solid var(--cyan);
+  padding: 0 14px;
+  background: rgba(103, 215, 229, 0.1);
+  color: var(--cyan);
+  font-size: 8px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.nft-verify {
+  width: 100%;
+  margin-top: 8px;
+  border-color: var(--gold);
+  background: var(--gold);
+  color: var(--void);
+}
+
+.nft-fields {
+  display: grid;
+  grid-template-columns: 1.6fr 0.5fr;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.nft-fields label > span {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--muted);
+  font-size: 6px;
+  letter-spacing: 0.1em;
+}
+
+.nft-fields input {
+  width: 100%;
+  height: 34px;
+  border: 1px solid var(--line-hi);
+  padding: 0 9px;
+  background: #090e17;
+  color: var(--paper);
+  font-size: 8px;
+}
+
+.wallet-console > small {
+  display: block;
+  min-height: 24px;
+  padding: 9px 0 4px;
+  color: var(--green);
+  font-size: 7px;
+}
+
+.economy-safety {
+  margin-top: 8px;
+  padding: 9px 11px;
+  border-left: 3px solid var(--pink);
+  background: rgba(255, 93, 158, 0.07);
+  color: #b6bdca;
+  font-size: 6px;
+  line-height: 1.55;
+  letter-spacing: 0.04em;
+}
+
+.corporate-tenant {
+  display: block;
+  width: fit-content;
+  margin: -5px 0 14px;
+  padding: 6px 8px;
+  border: 1px solid var(--gold);
+  color: var(--gold);
+  font-size: 7px;
+  letter-spacing: .08em;
+}
+
+.corporate-city {
+  padding: 22px;
+  border-bottom: 1px solid var(--line);
+  background:
+    linear-gradient(120deg, rgba(130, 192, 255, .08), transparent 48%),
+    #111722;
+}
+
+.corporate-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.corporate-heading > div:first-child > span {
+  color: var(--gold);
+  font-size: 7px;
+  letter-spacing: .14em;
+}
+
+.corporate-heading h2 {
+  margin: 7px 0 8px;
+  font-family: Arial Black, Impact, sans-serif;
+  font-size: clamp(28px, 4vw, 46px);
+  line-height: .95;
+}
+
+.corporate-heading p {
+  max-width: 710px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.55;
+}
+
+.boss-progress {
+  min-width: 220px;
+  padding: 13px;
+  border: 1px solid var(--gold);
+  background: rgba(244, 211, 94, .07);
+}
+
+.boss-progress span,
+.boss-progress strong,
+.boss-progress b {
+  display: block;
+}
+
+.boss-progress span {
+  color: var(--gold);
+  font-size: 7px;
+}
+
+.boss-progress strong {
+  margin: 5px 0;
+  font-size: 15px;
+}
+
+.boss-progress b {
+  color: var(--muted);
+  font-size: 6px;
+}
+
+.role-ladder {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  margin: 16px 0 10px;
+  border: 1px solid var(--line);
+}
+
+.role-ladder > div {
+  min-width: 0;
+  padding: 10px;
+  border-right: 1px solid var(--line);
+  opacity: .42;
+}
+
+.role-ladder > div:last-child {
+  border-right: 0;
+}
+
+.role-ladder > div.reached {
+  opacity: 1;
+  box-shadow: inset 0 -3px var(--green);
+}
+
+.role-ladder span,
+.role-ladder strong,
+.role-ladder small {
+  display: block;
+}
+
+.role-ladder span,
+.role-ladder small {
+  color: var(--muted);
+  font-size: 6px;
+}
+
+.role-ladder strong {
+  margin: 5px 0;
+  color: var(--green);
+  font-size: 8px;
+}
+
+.company-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.company-grid button {
+  --company-color: var(--cyan);
+  min-height: 118px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--company-color);
+  background: #161d2a;
+  color: var(--paper);
+  text-align: left;
+  cursor: pointer;
+}
+
+.company-grid button.active {
+  border-color: var(--company-color);
+  box-shadow: inset 0 0 20px color-mix(in srgb, var(--company-color) 10%, transparent);
+}
+
+.company-grid span {
+  color: var(--company-color);
+  font-size: 6px;
+}
+
+.company-grid strong {
+  margin: 6px 0;
+  font-size: 9px;
+}
+
+.company-grid p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 6px;
+}
+
+.company-grid b {
+  margin-top: auto;
+  padding-top: 8px;
+  color: var(--company-color);
+  font-size: 6px;
+}
+
+.affiliation-note {
+  display: block;
+  margin-top: 12px;
+  color: #727d91;
+  font-size: 6px;
+  line-height: 1.45;
+}
+
+.deck-workbench {
+  padding: 22px;
+}
+
+.deck-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.tcg-record {
+  min-width: 140px;
+  padding: 12px;
+  border: 1px solid var(--pink);
+  text-align: center;
+  background: rgba(255, 93, 158, 0.06);
+}
+
+.tcg-record strong,
+.tcg-record span,
+.tcg-record b {
+  display: block;
+}
+
+.tcg-record strong {
+  color: var(--pink);
+  font-family: Arial Black, Impact, sans-serif;
+  font-size: 30px;
+}
+
+.tcg-record span,
+.tcg-record b {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 6px;
+}
+
+.tcg-record b {
+  color: var(--gold);
+}
+
+.card-collection {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(150px, 1fr));
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.city-card {
+  --card-color: var(--cyan);
+  min-width: 0;
+  min-height: 285px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  padding: 10px;
+  border: 1px solid var(--line-hi);
+  border-top: 4px solid var(--card-color);
+  background:
+    linear-gradient(145deg, color-mix(in srgb, var(--card-color) 12%, transparent), transparent 45%),
+    #151b27;
+  color: var(--paper);
+  text-align: left;
+  cursor: pointer;
+  box-shadow: 5px 5px 0 rgba(0, 0, 0, 0.24);
+}
+
+.city-card.rare {
+  box-shadow: 5px 5px 0 rgba(0,0,0,.24), inset 0 0 22px color-mix(in srgb, var(--card-color) 7%, transparent);
+}
+
+.city-card.epic {
+  border-color: var(--gold);
+}
+
+.city-card.equipped {
+  outline: 2px solid var(--green);
+  outline-offset: -5px;
+}
+
+.city-card.locked {
+  filter: grayscale(1);
+  opacity: 0.38;
+}
+
+.city-card:disabled {
+  cursor: not-allowed;
+}
+
+.city-card:not(:disabled):hover {
+  transform: translateY(-3px);
+  border-color: var(--card-color);
+}
+
+.card-code,
+.city-card > small,
+.city-card > p,
+.city-card > em {
+  font-size: 6px;
+}
+
+.card-code {
+  color: var(--card-color);
+  letter-spacing: 0.12em;
+}
+
+.card-cost {
+  position: absolute;
+  top: 7px;
+  right: 8px;
+  width: 25px;
+  height: 25px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--gold);
+  background: var(--gold);
+  color: var(--void);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.card-art {
+  height: 92px;
+  margin: 8px 0 10px;
+  display: grid;
+  place-items: center;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--card-color) 30%, #192334), #080d16);
+}
+
+.card-art > b {
+  position: relative;
+  z-index: 2;
+  color: var(--card-color);
+  font-family: Arial Black, Impact, sans-serif;
+  font-size: 30px;
+  letter-spacing: 0.09em;
+  text-shadow: 4px 4px #080a12;
+}
+
+.card-art > i {
+  position: absolute;
+  width: 105px;
+  height: 1px;
+  background: var(--card-color);
+  opacity: 0.42;
+}
+
+.card-art > i:nth-of-type(1) {
+  transform: rotate(27deg);
+}
+
+.card-art > i:nth-of-type(2) {
+  transform: rotate(-31deg);
+}
+
+.card-art > i:nth-of-type(3) {
+  width: 55px;
+  height: 55px;
+  border: 1px solid var(--card-color);
+  background: transparent;
+  transform: rotate(45deg);
+}
+
+.city-card > strong {
+  font-size: 11px;
+}
+
+.city-card > small {
+  margin: 4px 0 8px;
+  color: var(--card-color);
+}
+
+.city-card > p {
+  min-height: 39px;
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.card-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin-top: auto;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.card-stats span {
+  color: var(--muted);
+  font-size: 6px;
+}
+
+.card-stats b {
+  float: right;
+  color: var(--paper);
+  font-size: 12px;
+}
+
+.card-live {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  margin-top: 6px;
+  color: var(--green);
+  font-size: 6px;
+  letter-spacing: 0.05em;
+}
+
+.card-live b {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.card-value {
+  margin-top: 6px;
+  padding: 5px 6px;
+  border: 1px solid rgba(244, 211, 94, .45);
+  background: rgba(244, 211, 94, .06);
+  color: var(--gold);
+  font-size: 6px;
+  text-align: center;
+  letter-spacing: .05em;
+}
+
+.city-card > em {
+  margin-top: 8px;
+  padding: 5px;
+  background: color-mix(in srgb, var(--card-color) 12%, transparent);
+  color: var(--card-color);
+  font-style: normal;
+  text-align: center;
+}
+
+.tcg-battle {
+  width: min(980px, 96vw);
+}
+
+.tcg-scoreboard {
+  display: grid;
+  grid-template-columns: 1fr 60px 1fr;
+  align-items: center;
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--line);
+  background:
+    linear-gradient(90deg, rgba(101,214,166,.12), transparent 45%),
+    linear-gradient(270deg, rgba(255,93,158,.12), transparent 45%),
+    #0e141f;
+}
+
+.tcg-scoreboard > div:first-child {
+  text-align: left;
+}
+
+.tcg-scoreboard > div:last-child {
+  text-align: right;
+}
+
+.tcg-scoreboard span,
+.tcg-scoreboard small,
+.tcg-scoreboard strong {
+  display: block;
+}
+
+.tcg-scoreboard span,
+.tcg-scoreboard small {
+  color: var(--muted);
+  font-size: 6px;
+  letter-spacing: .1em;
+}
+
+.tcg-scoreboard strong {
+  color: var(--green);
+  font-family: Arial Black, Impact, sans-serif;
+  font-size: 36px;
+}
+
+.tcg-scoreboard > div:last-child strong {
+  color: var(--pink);
+}
+
+.tcg-scoreboard > i {
+  color: var(--gold);
+  text-align: center;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.tcg-battlefield {
+  padding: 16px 18px 20px;
+}
+
+.battle-message {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  min-height: 34px;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  background: #0a1019;
+}
+
+.battle-message p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 7px;
+}
+
+.battle-hand {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(120px, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.city-card.compact {
+  min-height: 250px;
+}
+
+.city-card.compact .card-art {
+  height: 68px;
+}
+
+.city-card.compact .card-art > b {
+  font-size: 23px;
+}
+
+.city-card.compact > p {
+  min-height: 46px;
+}
+
+@media (max-width: 900px) {
+  .nft-passport {
+    grid-template-columns: 250px 1fr;
+  }
+
+  .card-collection {
+    grid-template-columns: repeat(3, minmax(145px, 1fr));
+  }
+
+  .battle-hand {
+    grid-template-columns: repeat(3, minmax(120px, 1fr));
+    max-height: 430px;
+    overflow-y: auto;
+  }
+
+  .company-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 680px) {
+  .nft-passport {
+    grid-template-columns: 1fr;
+  }
+
+  .character-card-frame {
+    width: min(300px, 100%);
+    margin: auto;
+  }
+
+  .nft-fields,
+  .card-collection {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .deck-heading,
+  .battle-message,
+  .corporate-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .tcg-record {
+    min-width: 0;
+  }
+
+  .boss-progress {
+    min-width: 0;
+  }
+
+  .role-ladder {
+    grid-template-columns: 1fr;
+  }
+
+  .role-ladder > div {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .company-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .nft-fields,
+  .card-collection,
+  .battle-hand,
+  .company-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .tcg-scoreboard {
+    grid-template-columns: 1fr 38px 1fr;
+    padding-inline: 12px;
+  }
+}

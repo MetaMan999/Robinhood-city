@@ -1,14 +1,13 @@
-# RHOOS CITY — Player & Career Engine
+# RHOOS CITY — NFT Work TCG
 
-RHOOS CITY is a playable first-person economic RPG rendered in real-time 3D,
-with an original procedural soundtrack and a live programmable operations layer
-called HookTech. The v0.4 player engine adds persistent character customization,
-career tracks, profession bonuses, experience levels, work streaks, and lifetime
-earnings.
+RHOOS CITY is a playable first-person living-city trading card game. Explore a
+neon New York-inspired district, use a free origin character or verify an
+ERC-721 character NFT, build a work deck, win corporate job encounters, rise
+from intern to District Boss, own businesses, and automate the economy with
+HookTech.
 
-Walk the streets of District One, follow traffic and citizens, take verified
-jobs, earn wages, purchase businesses, and install hooks that react to the
-city's inventory, sales, traffic, shifts, revenue, and power demand.
+Version 0.5 turns the existing economic RPG into a TCG while preserving its
+3D city, traffic, citizens, property, jobs, careers, soundtrack, and simulation.
 
 ## Run locally
 
@@ -27,67 +26,65 @@ Open the local address printed by the development server.
 - Mouse: look around after clicking the game
 - Arrow keys: look and move
 - `Shift`: sprint
-- `E` or `F`: interact with a nearby building
-- `Space`: hit the timing window during work shifts
+- `E` or `F`: interact with a nearby building or begin an accepted card shift
+- `C`: NFT character and card deck
 - `J`: city jobs channel
 - `P`: character and career engine
 - `H`: HookTech matrix
 - `M`: district map
-- `Space`: pause when no work console is open
+- `Space`: pause
 - `Esc`: release mouse or close a panel
 
-Touch controls appear automatically on narrow screens.
+## TCG and career systems
 
-## Live systems
+- Free city-origin character, plus user-triggered ERC-721 ownership verification
+- Read-only wallet integration using the EIP-1193 provider interface
+- Sixteen work cards across movement, industry, markets, finance, and HookTech
+- Persistent unique serial, XP, plays, and wins for every collected card
+- Live card modifiers driven by traffic, grid load, demand, city output, and
+  installed HookTech modules
+- Six-to-ten-card deck builder and three-round job encounters
+- Device-local RHO credits, rating, collection unlocks, and career progression
+- City Value score based on rarity, verified play, mastery, wins, live
+  conditions, and corporate rank
+- Ten text-only prototype workplaces based on current large public companies
+- Five-rank company ladder: City Intern, Associate, Manager, Director, and
+  District Boss
+- Company-HQ job alignment, promotions, and in-game wage bonuses
+
+Prototype company names are used as text-only roleplay workplaces. The game is
+not affiliated with, endorsed by, or sponsored by those companies or S&P Dow
+Jones Indices. It contains no live stock prices or investment products.
+
+## Existing living-city systems
 
 - Three.js WebGL renderer with modeled buildings, vehicles, citizens,
   streetlights, traffic signals, weather, shadows, fog, and neon signs
-- First-person movement, looking, sprint energy, collision, and targeting
-- Twenty city locations across industry, commerce, utilities, finance,
-  transport, housing, government, and entertainment
-- Twenty scheduled citizens and twenty-six moving vehicles
-- Traffic density, road signals, weather, day/night, fog, and rain
-- Ore → steel → electronics → freight → retail production chain
-- Eighteen verified city jobs with wages, reputation, and business output
-- Timing-based work console that turns every shift into a skill challenge
-- Character studio with editable name, call sign, skin, hair, jacket, and
-  wearable tech colors
-- Five switchable career tracks with matched job recommendations, wage bonuses,
-  experience, titles, levels, work streaks, and lifetime earnings
-- First-person hands and clothing that update with the saved character
-- Contract management for accepting, routing to, working, and releasing jobs
-- Original generative city soundtrack with melody, bass, percussion, ambience,
-  interaction sounds, mute, and volume controls
-- Property ownership, dividends, upgrades, and automatic local saving
-- Six installable HookTech modules with real simulation effects:
-  - Supply Router
-  - Dynamic Market
-  - Shift-to-Earn
-  - Traffic Oracle
-  - Treasury Split
-  - Grid Guard
-- Live execution blocks and HookTech packet monitor
-- Full district map, building terminals, job board, and mobile controls
+- Twenty locations, twenty scheduled citizens, and twenty-six moving vehicles
+- Traffic, day/night, weather, economy, production, jobs, property ownership,
+  business upgrades, and six programmable HookTech modules
+- Original generative city soundtrack and responsive desktop/mobile interface
+- Automatic browser-local saving
 
 ## Project structure
 
-- `app/rhoos-live-city.tsx`: player loop, economy, UI, jobs, property, and
-  HookTech runtime
-- `app/rhoos-three-engine.ts`: Three.js city renderer, real 3D models, lights,
-  traffic, citizens, weather, and first-person camera
-- `app/rhoos-sound-engine.ts`: original procedural soundtrack and game sounds
-- `app/game-data.ts`: city buildings, job definitions, citizens, vehicles, and
-  hook modules
-- `app/globals.css`: responsive game interface and 1980s PC visual system
-- `public/og.png`: project social preview card
-- `tests/rendered-html.test.mjs`: production-render smoke tests
+- `app/rhoos-live-city.tsx`: player loop, TCG, wallet UI, economy, careers,
+  jobs, property, and HookTech runtime
+- `app/tcg-data.ts`: card definitions and starter collection
+- `app/corporate-data.ts`: prototype corporate workplaces and role ladder
+- `app/nft-wallet.ts`: read-only EIP-1193/ERC-721 ownership verification
+- `app/rhoos-three-engine.ts`: Three.js living-city renderer
+- `app/rhoos-sound-engine.ts`: procedural soundtrack and game sounds
+- `app/game-data.ts`: buildings, jobs, citizens, vehicles, and hooks
+- `app/globals.css`: responsive game and TCG interface
+- `public/og.png`: generated project cover
 
 ## Verify
 
 ```bash
-npm run build
 npm test
 ```
 
-Player progress is stored locally in the browser; no account or external
-database is required.
+Progression and RHO credits are device-local prototype game state with no cash
+value. The game never requests NFT transfers, approvals, minting, or automatic
+spending.
