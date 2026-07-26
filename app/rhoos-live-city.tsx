@@ -134,6 +134,22 @@ type CardInstance = {
   wins: number;
 };
 
+type DriveableCar = {
+  id: string;
+  name: string;
+  x: number;
+  y: number;
+  angle: number;
+  colorIndex: number;
+};
+
+type CityDialogue = {
+  npcIndex: number;
+  name: string;
+  status: string;
+  text: string;
+};
+
 const CAREER_TRACKS: CareerTrack[] = [
   {
     id: "operator",
@@ -251,7 +267,9 @@ type Engine = {
     inCar: boolean;
     odometer: number;
     condition: number;
+    activeId: string | null;
   };
+  garageCars: DriveableCar[];
   simMinutes: number;
   day: number;
   speed: 1 | 3 | 8;
@@ -324,7 +342,14 @@ function initialEngine(): Engine {
       inCar: false,
       odometer: 0,
       condition: 100,
+      activeId: null,
     },
+    garageCars: [
+      { id: "rho-86", name: "RHO-86 STREET COUPE", x: 1050, y: 950, angle: 0, colorIndex: 4 },
+      { id: "metro-gt", name: "METRO GT", x: 1215, y: 950, angle: Math.PI, colorIndex: 1 },
+      { id: "cab-7", name: "CAB-7 CITY TAXI", x: 730, y: 530, angle: Math.PI / 2, colorIndex: 2 },
+      { id: "nightline", name: "NIGHTLINE SEDAN", x: 300, y: 760, angle: -Math.PI / 2, colorIndex: 5 },
+    ],
     simMinutes: 6 * 60 + 52,
     day: 1,
     speed: 1,
@@ -637,6 +662,87 @@ function getNpcPosition(index: number, simMinutes: number) {
   return bendFirst
     ? { x: end.x, y: start.y + (end.y - start.y) * part, status }
     : { x: start.x + (end.x - start.x) * part, y: end.y, status };
+}
+
+function getNearestNpc(engine: Engine) {
+  return NPC_NAMES.map((name, index) => {
+    const position = getNpcPosition(index, engine.simMinutes);
+    return {
+      index,
+      name,
+      ...position,
+      distance: Math.hypot(engine.player.x - position.x, engine.player.y - position.y),
+    };
+  }).sort((a, b) => a.distance - b.distance)[0];
+}
+
+function getNearestDriveableCar(engine: Engine) {
+  return engine.garageCars
+    .map((car) => ({
+      car,
+      distance: Math.hypot(engine.player.x - car.x, engine.player.y - car.y),
+    }))
+    .sort((a, b) => a.distance - b.distance)[0];
+}
+
+function cityLocation(engine: Engine) {
+  const position = engine.vehicle.inCar ? engine.vehicle : engine.player;
+  const verticalNames = ["HUDSON AVENUE", "MARKET AVENUE", "CENTRAL AVENUE", "EAST RIVER DRIVE"];
+  const horizontalNames = ["UPTOWN STREET", "MIDTOWN STREET", "HARBOR BOULEVARD"];
+  const vertical = ROAD_X.map((road, index) => ({
+    name: verticalNames[index],
+    distance: Math.abs(position.x - road),
+  })).sort((a, b) => a.distance - b.distance)[0];
+  const horizontal = ROAD_Y.map((road, index) => ({
+    name: horizontalNames[index],
+    distance: Math.abs(position.y - road),
+  })).sort((a, b) => a.distance - b.distance)[0];
+  const district =
+    position.y < 440
+      ? "UPTOWN"
+      : position.y > 820
+        ? "HARBOR DISTRICT"
+        : position.x < 520
+          ? "WEST MARKET"
+          : position.x > 1380
+            ? "EAST WORKS"
+            : "FINANCIAL CORE";
+  return { street: vertical.distance < horizontal.distance ? vertical.name : horizontal.name, district };
+}
+
+function npcDialogueText(index: number, status: string) {
+  const lines: Record<string, string[]> = {
+    WORK: [
+      "The morning contracts pay best before the lunch rush. Check the jobs channel.",
+      "Every shift changes our business output. Good workers really move this city.",
+      "I’m saving for a storefront. One more promotion and the bank may approve it.",
+    ],
+    COMMUTE: [
+      "Central Avenue is packed today. A car will get you across town much faster.",
+      "Traffic lights follow the city clock. Watch the cross streets when you drive.",
+      "The Metro GT is parked near Central Loop if you need a quick ride.",
+    ],
+    CITY: [
+      "The market gets lively after work. People spend what the factories paid them.",
+      "Sakura Café knows every rumor in District One. That’s where founders meet.",
+      "Property values rise when nearby businesses keep their shelves stocked.",
+    ],
+    LEISURE: [
+      "Moon Arcade runs work-card matches after dark. Winners build reputation fast.",
+      "The harbor lights are beautiful tonight. Take the Nightline down there.",
+      "A good deck can turn an ordinary shift into a promotion.",
+    ],
+    RETURN: [
+      "Long day. The city keeps earning while its businesses stay supplied.",
+      "Night traffic is lighter, but the freight routes never really sleep.",
+    ],
+    HOME: [
+      "I’m off duty. Come back during business hours and I may have a lead for you.",
+      "District One remembers who helps it grow. Reputation opens doors.",
+    ],
+  };
+  const choices = lines[status] ?? lines.CITY;
+  return choices[index % choices.length];
 }
 
 function getCarPosition(index: number, engine: Engine) {
@@ -1232,6 +1338,7 @@ export default function RhoosLiveCity() {
   const [nftTokenId, setNftTokenId] = useState("");
   const [nftName, setNftName] = useState("District Origin");
   const [nftImageUrl, setNftImageUrl] = useState("");
+  const [dialogue, setDialogue] = useState<CityDialogue | null>(null);
 
   const refresh = useCallback(() => setRevision((value) => value + 1), []);
 
@@ -1258,7 +1365,17 @@ export default function RhoosLiveCity() {
           ...base,
           ...saved,
           player: { ...base.player, ...saved.player },
-          vehicle: { ...base.vehicle, ...saved.vehicle, inCar: false, speed: 0 },
+          vehicle: {
+            ...base.vehicle,
+            ...saved.vehicle,
+            activeId: null,
+            inCar: false,
+            speed: 0,
+          },
+          garageCars:
+            saved.garageCars?.length === base.garageCars.length
+              ? saved.garageCars
+              : base.garageCars,
           profile: { ...base.profile, ...saved.profile },
           tcg: {
             ...base.tcg,
@@ -1315,7 +1432,17 @@ export default function RhoosLiveCity() {
         refresh();
         return;
       }
+      const parkedCar = engine.garageCars.find(
+        (car) => car.id === engine.vehicle.activeId,
+      );
+      if (parkedCar) {
+        parkedCar.x = engine.vehicle.x;
+        parkedCar.y = engine.vehicle.y;
+        parkedCar.angle = engine.vehicle.angle;
+      }
       engine.vehicle.inCar = false;
+      const parkedName = parkedCar?.name ?? "CITY VEHICLE";
+      engine.vehicle.activeId = null;
       engine.vehicle.speed = 0;
       engine.player.x = clamp(
         engine.vehicle.x - Math.sin(engine.vehicle.angle) * 24,
@@ -1335,15 +1462,17 @@ export default function RhoosLiveCity() {
       engine.moving = false;
       soundRef.current?.setDriving(0, false);
       soundRef.current?.blip("interact");
-      addEvent(engine, "Exited RHO-86. Vehicle parked.");
+      addEvent(engine, `Exited ${parkedName}. Vehicle parked.`);
       refresh();
       return;
     }
-    const distanceToVehicle = Math.hypot(
-      engine.player.x - engine.vehicle.x,
-      engine.player.y - engine.vehicle.y,
-    );
-    if (distanceToVehicle < 82) {
+    const nearestVehicle = getNearestDriveableCar(engine);
+    if (nearestVehicle && nearestVehicle.distance < 145) {
+      const { car } = nearestVehicle;
+      engine.vehicle.x = car.x;
+      engine.vehicle.y = car.y;
+      engine.vehicle.angle = car.angle;
+      engine.vehicle.activeId = car.id;
       engine.vehicle.inCar = true;
       engine.player.x = engine.vehicle.x;
       engine.player.y = engine.vehicle.y;
@@ -1354,11 +1483,27 @@ export default function RhoosLiveCity() {
       engine.player.velocityY = 0;
       engine.moving = false;
       setPanel(null);
+      setDialogue(null);
       soundRef.current?.blip("reward");
-      addEvent(engine, "RHO-86 ignition on. Drive the city with WASD.");
+      addEvent(engine, `${car.name} ignition on. Drive the city with WASD.`);
       refresh();
       return;
     }
+    const nearestNpc = getNearestNpc(engine);
+    if (nearestNpc && nearestNpc.distance < 92) {
+      setPanel(null);
+      setDialogue({
+        npcIndex: nearestNpc.index,
+        name: nearestNpc.name,
+        status: nearestNpc.status,
+        text: npcDialogueText(nearestNpc.index, nearestNpc.status),
+      });
+      soundRef.current?.blip("interact");
+      addEvent(engine, `Spoke with ${nearestNpc.name}.`);
+      refresh();
+      return;
+    }
+    setDialogue(null);
     const focused = getFocusedBuilding(engine);
     const nearest = BUILDINGS.map((building) => ({
       building,
@@ -1452,7 +1597,15 @@ export default function RhoosLiveCity() {
         current.vehicle.angle = 0;
         current.vehicle.speed = 0;
         current.vehicle.steering = 0;
-        addEvent(current, "RHO-86 recovered to Central Loop.");
+        const recovered = current.garageCars.find(
+          (car) => car.id === current.vehicle.activeId,
+        );
+        if (recovered) {
+          recovered.x = current.vehicle.x;
+          recovered.y = current.vehicle.y;
+          recovered.angle = current.vehicle.angle;
+        }
+        addEvent(current, `${recovered?.name ?? "Vehicle"} recovered to Central Loop.`);
         soundRef.current?.blip("hook");
         refresh();
       }
@@ -1460,7 +1613,10 @@ export default function RhoosLiveCity() {
         engineRef.current.paused = !engineRef.current.paused;
         refresh();
       }
-      if (key === "escape") setPanel(null);
+      if (key === "escape") {
+        setPanel(null);
+        setDialogue(null);
+      }
     };
     const onKeyUp = (event: KeyboardEvent) => {
       keysRef.current.delete(event.key.toLowerCase());
@@ -1644,6 +1800,14 @@ export default function RhoosLiveCity() {
             engine.vehicle.y = nextY;
             engine.vehicle.odometer += Math.abs(travel) / 1000;
           }
+          const activeCar = engine.garageCars.find(
+            (car) => car.id === engine.vehicle.activeId,
+          );
+          if (activeCar) {
+            activeCar.x = engine.vehicle.x;
+            activeCar.y = engine.vehicle.y;
+            activeCar.angle = engine.vehicle.angle;
+          }
           engine.player.x = engine.vehicle.x;
           engine.player.y = engine.vehicle.y;
           engine.player.angle = engine.vehicle.angle;
@@ -1789,6 +1953,9 @@ export default function RhoosLiveCity() {
   const activeJob = engine.activeJob
     ? JOBS.find((job) => job.id === engine.activeJob?.jobId)
     : null;
+  const activeJobBuilding = activeJob
+    ? BUILDINGS.find((building) => building.id === activeJob.buildingId)
+    : null;
   const currentCareer =
     CAREER_TRACKS.find((career) => career.id === engine.profile.careerId) ??
     CAREER_TRACKS[0];
@@ -1802,11 +1969,18 @@ export default function RhoosLiveCity() {
     (id) => !engine.disabledHooks.includes(id),
   ).length;
   const nearSelected = distanceToRect(engine.player.x, engine.player.y, selected) < 105;
-  const distanceToVehicle = Math.hypot(
-    engine.player.x - engine.vehicle.x,
-    engine.player.y - engine.vehicle.y,
+  const nearestVehicle = getNearestDriveableCar(engine);
+  const nearVehicle =
+    !engine.vehicle.inCar && Boolean(nearestVehicle && nearestVehicle.distance < 145);
+  const nearestNpc = getNearestNpc(engine);
+  const nearNpc =
+    !engine.vehicle.inCar &&
+    !nearVehicle &&
+    Boolean(nearestNpc && nearestNpc.distance < 92);
+  const location = cityLocation(engine);
+  const activeVehicle = engine.garageCars.find(
+    (car) => car.id === engine.vehicle.activeId,
   );
-  const nearVehicle = !engine.vehicle.inCar && distanceToVehicle < 82;
   const speedMph = Math.round(Math.abs(engine.vehicle.speed) * 0.22);
 
   function updateProfile<K extends keyof CharacterProfile>(
@@ -2246,6 +2420,74 @@ export default function RhoosLiveCity() {
           <Telemetry label="TRAFFIC" value={`${Math.round(engine.traffic)}%`} color="#ff5d9e" />
         </div>
 
+        <aside className="mini-map" aria-label={`Mini map: ${location.street}, ${location.district}`}>
+          <div className="mini-map-head">
+            <div>
+              <span>{location.district}</span>
+              <strong>{location.street}</strong>
+            </div>
+            <b>N ↑</b>
+          </div>
+          <div className="mini-map-world">
+            {ROAD_X.map((road) => (
+              <i
+                key={`mini-v-${road}`}
+                className="mini-road vertical"
+                style={{ left: `${(road / MAP_WIDTH) * 100}%`, width: `${(ROAD_WIDTH / MAP_WIDTH) * 100}%` }}
+              />
+            ))}
+            {ROAD_Y.map((road) => (
+              <i
+                key={`mini-h-${road}`}
+                className="mini-road horizontal"
+                style={{ top: `${(road / MAP_HEIGHT) * 100}%`, height: `${(ROAD_WIDTH / MAP_HEIGHT) * 100}%` }}
+              />
+            ))}
+            {mapBuildings.map((building) => (
+              <i
+                key={`mini-building-${building.id}`}
+                className="mini-building"
+                style={{
+                  left: `${(building.x / MAP_WIDTH) * 100}%`,
+                  top: `${(building.y / MAP_HEIGHT) * 100}%`,
+                  width: `${Math.max(1.4, (building.w / MAP_WIDTH) * 100)}%`,
+                  height: `${Math.max(2, (building.h / MAP_HEIGHT) * 100)}%`,
+                  background: building.accent,
+                }}
+              />
+            ))}
+            {engine.garageCars.map((car) => (
+              <i
+                key={`mini-car-${car.id}`}
+                className={`mini-car ${car.id === engine.vehicle.activeId ? "active" : ""}`}
+                style={{
+                  left: `${(car.x / MAP_WIDTH) * 100}%`,
+                  top: `${(car.y / MAP_HEIGHT) * 100}%`,
+                }}
+                title={car.name}
+              />
+            ))}
+            {activeJobBuilding && (
+              <i
+                className="mini-objective"
+                style={{
+                  left: `${(centerOf(activeJobBuilding).x / MAP_WIDTH) * 100}%`,
+                  top: `${(centerOf(activeJobBuilding).y / MAP_HEIGHT) * 100}%`,
+                }}
+              />
+            )}
+            <i
+              className="mini-player"
+              style={{
+                left: `${(((engine.vehicle.inCar ? engine.vehicle.x : engine.player.x) / MAP_WIDTH) * 100)}%`,
+                top: `${(((engine.vehicle.inCar ? engine.vehicle.y : engine.player.y) / MAP_HEIGHT) * 100)}%`,
+                transform: `translate(-50%, -50%) rotate(${engine.player.angle + Math.PI / 2}rad)`,
+              }}
+            />
+          </div>
+          <div className="mini-map-key"><span>● YOU</span><span>◆ CARS</span><span>◎ JOB</span></div>
+        </aside>
+
         <nav className="live-nav" aria-label="Game panels">
           <button className={panel === "map" ? "active" : ""} onClick={() => setPanel(panel === "map" ? null : "map")}>
             <b>M</b><span>MAP</span>
@@ -2342,18 +2584,52 @@ export default function RhoosLiveCity() {
 
         {nearVehicle && !panel && (
           <div className="target-card vehicle-target">
-            <span>PERSONAL VEHICLE / {Math.round(distanceToVehicle)}m</span>
-            <strong>RHO-86 STREET COUPE</strong>
-            <p>Press E to enter. Smooth steering, boost, handbrake, chase camera, and live engine audio.</p>
+            <span>ENTERABLE VEHICLE / {Math.round(nearestVehicle?.distance ?? 0)}m</span>
+            <strong>{nearestVehicle?.car.name}</strong>
+            <p>Press E anywhere inside the approach ring. The driver door opens automatically.</p>
           </div>
         )}
 
-        {focused && !panel && !nearVehicle && !engine.vehicle.inCar && (
+        {nearNpc && nearestNpc && !panel && !dialogue && (
+          <div className="target-card person-target">
+            <span>{nearestNpc.status} / {Math.round(nearestNpc.distance)}m</span>
+            <strong>E — TALK TO {nearestNpc.name.toUpperCase()}</strong>
+            <p>Ask about work, traffic, businesses, and life in District One.</p>
+          </div>
+        )}
+
+        {focused && !panel && !nearVehicle && !nearNpc && !engine.vehicle.inCar && !dialogue && (
           <div className="target-card" style={{ "--target-accent": focused.building.accent } as React.CSSProperties}>
             <span>{focused.building.kind.toUpperCase()} / {Math.round(focused.distance)}m</span>
             <strong>{focused.building.name}</strong>
             <p>{focused.building.description}</p>
           </div>
+        )}
+
+        {dialogue && !panel && !engine.vehicle.inCar && (
+          <aside className="city-dialogue" aria-live="polite">
+            <div className="dialogue-portrait" aria-hidden="true">
+              <span>{dialogue.name.slice(0, 1)}</span>
+            </div>
+            <div>
+              <header>
+                <strong>{dialogue.name}</strong>
+                <span>{dialogue.status} / DISTRICT RESIDENT</span>
+              </header>
+              <p>“{dialogue.text}”</p>
+              <footer>
+                <button
+                  onClick={() => {
+                    setDialogue(null);
+                    setPanel("jobs");
+                  }}
+                >
+                  SHOW ME THE JOBS
+                </button>
+                <button onClick={() => setDialogue(null)}>GOODBYE</button>
+              </footer>
+            </div>
+          </aside>
         )}
 
         {engine.vehicle.inCar && (
@@ -2365,7 +2641,7 @@ export default function RhoosLiveCity() {
               <i style={{ transform: `rotate(${Math.min(228, speedMph * 3.2) - 114}deg)` }} />
             </div>
             <div className="drive-data">
-              <span>RHO-86 / STREET MODE</span>
+              <span>{activeVehicle?.name ?? "CITY VEHICLE"} / STREET MODE</span>
               <strong>{engine.sprinting ? "BOOST ACTIVE" : "SMOOTH DRIVE"}</strong>
               <div>
                 <b>COND {engine.vehicle.condition.toFixed(0)}%</b>

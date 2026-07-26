@@ -52,6 +52,13 @@ test("keeps the NFT, unique card, corporate, WebGL, soundtrack, and HookTech eng
   assert.match(game, /cardLiveBonus/);
   assert.match(game, /createCardInstance/);
   assert.match(game, /RHO-86/);
+  assert.match(game, /METRO GT/);
+  assert.match(game, /CAB-7 CITY TAXI/);
+  assert.match(game, /getNearestDriveableCar/);
+  assert.match(game, /getNearestNpc/);
+  assert.match(game, /SHOW ME THE JOBS/);
+  assert.match(game, /mini-map-world/);
+  assert.match(game, /cityLocation/);
   assert.match(game, /handbrake/);
   assert.match(game, /vehicle\.odometer/);
   assert.match(game, /navigator\.getGamepads/);
@@ -69,6 +76,7 @@ test("keeps the NFT, unique card, corporate, WebGL, soundtrack, and HookTech eng
   assert.match(threeEngine, /chasePosition/);
   assert.match(threeEngine, /SpotLight/);
   assert.match(threeEngine, /makePlayerCharacter/);
+  assert.match(threeEngine, /driveableCars/);
   assert.match(threeEngine, /followPosition/);
   assert.match(threeEngine, /function makeNpc/);
   assert.match(threeEngine, /firstPersonRig/);

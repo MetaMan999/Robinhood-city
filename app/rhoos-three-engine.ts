@@ -31,7 +31,16 @@ export type Rhoos3DState = {
     speed: number;
     steering: number;
     inCar: boolean;
+    activeId: string | null;
   };
+  garageCars: Array<{
+    id: string;
+    name: string;
+    x: number;
+    y: number;
+    angle: number;
+    colorIndex: number;
+  }>;
   profile: { skin: string; jacket: string; accent: string };
   simMinutes: number;
   elapsed: number;
@@ -904,8 +913,13 @@ export function createRhoosThreeEngine(canvas: HTMLCanvasElement): RhoosThreeEng
     scene.add(car.group);
     cars.push(car);
   }
-  const playerCar = makeCar(4);
-  playerCar.group.scale.set(1.08, 1.08, 1.08);
+  const driveableCars = [4, 1, 2, 5].map((colorIndex) => {
+    const car = makeCar(colorIndex);
+    car.group.scale.set(1.08, 1.08, 1.08);
+    scene.add(car.group);
+    return car;
+  });
+  const playerCar = driveableCars[0];
   const headlightTarget = new THREE.Object3D();
   headlightTarget.position.set(90, 2, 0);
   playerCar.group.add(headlightTarget);
@@ -915,7 +929,6 @@ export function createRhoosThreeEngine(canvas: HTMLCanvasElement): RhoosThreeEng
     beam.target = headlightTarget;
     playerCar.group.add(beam);
   }
-  scene.add(playerCar.group);
   const chasePosition = new THREE.Vector3();
   let chaseReady = false;
 
@@ -1031,10 +1044,20 @@ export function createRhoosThreeEngine(canvas: HTMLCanvasElement): RhoosThreeEng
     playerCharacter.leftArm.rotation.x = -playerWalk * 0.72;
     playerCharacter.rightArm.rotation.x = playerWalk * 0.72;
 
-    playerCar.group.position.set(state.vehicle.x, 0, state.vehicle.y);
-    playerCar.group.rotation.y = -state.vehicle.angle;
-    const wheelSpeed = state.vehicle.speed * delta * 0.15;
-    for (const wheel of playerCar.wheels) wheel.rotation.z -= wheelSpeed;
+    for (let index = 0; index < driveableCars.length; index++) {
+      const model = driveableCars[index];
+      const car = state.garageCars[index];
+      if (!car) {
+        model.group.visible = false;
+        continue;
+      }
+      model.group.visible = true;
+      model.group.position.set(car.x, 0, car.y);
+      model.group.rotation.y = -car.angle;
+      const wheelSpeed =
+        car.id === state.vehicle.activeId ? state.vehicle.speed * delta * 0.15 : 0;
+      for (const wheel of model.wheels) wheel.rotation.z -= wheelSpeed;
+    }
 
     if (state.vehicle.inCar) {
       followReady = false;

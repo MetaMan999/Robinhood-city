@@ -1,14 +1,15 @@
 # RHOOS CITY — NFT Work TCG
 
 RHOOS CITY is a playable driving, third-person living-city trading card game.
-Explore a neon New York-inspired district on foot or in the RHO-86 street
-coupe, use a free origin character or verify an ERC-721 character NFT, build a
+Explore a neon New York-inspired district on foot or in four enterable city
+cars, talk to scheduled residents, navigate with a permanent minimap, use a
+free origin character or verify an ERC-721 character NFT, build a
 work deck, win corporate job encounters, rise from intern to District Boss,
 own businesses, and automate the economy with HookTech.
 
-Version 0.7 replaces the harder first-person navigation with an accessible
-N64-inspired third-person controller, visible animated player, camera-relative
-movement, smooth follow camera, and native gamepad input.
+Version 0.8 adds GTA-like easy vehicle entry, a four-car driveable fleet,
+nearby-person targeting, interactive dialogue bubbles, street and district
+labels, and a permanent minimap with roads, buildings, cars, and job markers.
 
 ## Run locally
 
@@ -26,7 +27,7 @@ Open the local address printed by the development server.
 - `WASD`: move and strafe
 - Arrow keys: orbit the follow camera
 - `Shift`: sprint
-- `E` or `F`: interact, enter the nearby RHO-86, or exit when stopped
+- `E` or `F`: interact, talk to a nearby citizen, enter any nearby city car, or exit when stopped
 - Gamepad left stick: camera-relative movement or vehicle steering
 - Gamepad right stick: orbit the third-person camera
 - Gamepad `A`: interact; right/left triggers: drive and brake; `B`: handbrake;
@@ -63,8 +64,8 @@ Open the local address printed by the development server.
 
 ## Driving systems
 
-- Parked personal RHO-86 street coupe visible inside the living city
-- Walk-up enter/exit interaction with safe low-speed exit
+- Four parked, enterable city cars: RHO-86, Metro GT, Cab-7, and Nightline
+- Generous GTA-like approach targeting with one-button entry and safe low-speed exit
 - Smooth acceleration, coasting drag, braking, reverse, steering interpolation,
   boost, and handbrake
 - Collision response, vehicle condition, odometer, gear, and MPH telemetry
@@ -83,6 +84,15 @@ Open the local address printed by the development server.
 - Soft character turning that follows the movement direction
 - N64-style elevated follow camera with smoothing and sprint zoom
 - Keyboard, touch, and standard browser gamepad support
+
+## City-life systems
+
+- Twenty scheduled residents who can be approached and spoken to
+- Contextual dialogue about jobs, traffic, businesses, property, and nightlife
+- Permanent minimap with player heading, roads, buildings, enterable cars, and
+  active-job destination
+- Live street and district names while walking or driving
+- Interaction priority that naturally selects a nearby car, person, or building
 
 Prototype company names are used as text-only roleplay workplaces. The game is
 not affiliated with, endorsed by, or sponsored by those companies or S&P Dow

@@ -5,23 +5,23 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://rhoos-city-district-one.meta5555.chatgpt.site"),
   title: "RHOOS CITY — Third-Person Work RPG",
   description:
-    "Explore a living city with simple N64-inspired third-person controls, drive a street coupe, build a unique card deck, work corporate jobs, and rise to boss.",
+    "Explore a living city with easy third-person controls, enter multiple cars, talk to scheduled citizens, follow a live minimap, work corporate jobs, and rise to boss.",
   openGraph: {
-    title: "RHOOS CITY — Move. Drive. Work. Collect.",
+    title: "RHOOS CITY — Move. Talk. Drive. Work.",
     description:
-      "An accessible third-person living-city RPG with fluid driving, unique cards, NFT characters, corporate careers, and playable work.",
+      "A third-person living-city RPG with easy car entry, city conversations, a live minimap, unique cards, corporate careers, and playable work.",
     images: [
       {
         url: "/og.png",
         width: 1536,
         height: 1024,
-        alt: "RHOOS CITY third-person character and driving game in a neon city",
+        alt: "RHOOS CITY third-person character, city cars, conversations, and minimap",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "RHOOS CITY — Move. Drive. Work. Collect.",
+    title: "RHOOS CITY — Move. Talk. Drive. Work.",
     description:
       "Drive the city, build a live work deck, rise from intern to boss, and build an economic life.",
     images: ["/og.png"],
