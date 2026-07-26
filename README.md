@@ -1,54 +1,67 @@
-# RHOOS CITY — District One
+# RHOOS CITY — First Person HookTech
 
-A playable single-city economic simulation inspired by the constraints and
-visual language of late-1980s Japanese computer games.
+RHOOS CITY is a playable first-person economic city prototype with a live
+programmable operations layer called HookTech.
 
-You arrive in District One with ¥3,200. Walk the streets, accept jobs, earn
-wages from real business treasuries, buy property, upgrade companies, and
-change the programmable rules that connect the city's economy.
+Walk the streets of District One, follow traffic and citizens, take verified
+jobs, earn wages, purchase businesses, and install hooks that react to the
+city's inventory, sales, traffic, shifts, revenue, and power demand.
 
-## Play
+## Run locally
 
-Requirements: Node.js 22.13 or newer.
+Requires Node.js 22.13 or newer.
 
 ```bash
 npm install
 npm run dev
 ```
 
-Open the local address shown in the terminal.
+Open the local address printed by the development server.
 
 ## Controls
 
-- `WASD` or arrow keys: walk
-- `E`: enter a nearby building or begin an accepted shift
-- `J`: open the selected building's jobs
-- `R`: open the city rule matrix
-- `Space`: pause or resume
-- Map click: inspect a building
-- Touch controls appear on narrow screens
+- `WASD`: move and strafe
+- Mouse: look around after clicking the game
+- Arrow keys: look and move
+- `Shift`: sprint
+- `E` or `F`: interact with a nearby building
+- `J`: city jobs channel
+- `H`: HookTech matrix
+- `M`: district map
+- `Space`: pause
+- `Esc`: release mouse or close a panel
 
-## Included systems
+Touch controls appear automatically on narrow screens.
 
-- A hand-built 20-location city with industrial, commercial, residential,
-  civic, finance, utility, entertainment, and transport districts
-- Animated cars, signal-controlled intersections, roads, and traffic flow
-- Twenty named citizens with home, commute, work, shopping, and leisure
-  schedules
-- A day/night cycle with three simulation speeds
-- A connected ore → steel → electronics → freight → market economy
-- Eighteen paid jobs with time, energy, and reputation requirements
-- Business inventory, workers, demand, output, cash, and property values
-- Player property ownership, dividends, and business upgrades
-- Six live `IF → THEN` automation rules with citywide effects
-- Local save/restore and auto-save
-- Keyboard, pointer, and touch controls
+## Live systems
+
+- Street-level pseudo-3D renderer with perspective buildings and signs
+- First-person movement, looking, sprint energy, collision, and targeting
+- Twenty city locations across industry, commerce, utilities, finance,
+  transport, housing, government, and entertainment
+- Twenty scheduled citizens and twenty-six moving vehicles
+- Traffic density, road signals, weather, day/night, fog, and rain
+- Ore → steel → electronics → freight → retail production chain
+- Eighteen verified city jobs with wages, reputation, and business output
+- Property ownership, dividends, upgrades, and automatic local saving
+- Six installable HookTech modules with real simulation effects:
+  - Supply Router
+  - Dynamic Market
+  - Shift-to-Earn
+  - Traffic Oracle
+  - Treasury Split
+  - Grid Guard
+- Live execution blocks and HookTech packet monitor
+- Full district map, building terminals, job board, and mobile controls
 
 ## Project structure
 
-- `app/rhoos-city.tsx`: game loop, rendering, interactions, and interface
-- `app/game-data.ts`: city map, buildings, jobs, NPCs, and automation rules
-- `app/globals.css`: visual system, responsive layout, and pixel-era styling
+- `app/rhoos-live-city.tsx`: first-person renderer, simulation, economy, UI,
+  jobs, property, and HookTech runtime
+- `app/game-data.ts`: city buildings, job definitions, citizens, vehicles, and
+  hook modules
+- `app/globals.css`: responsive game interface and 1980s PC visual system
+- `public/og.png`: project social preview card
 - `tests/rendered-html.test.mjs`: production-render smoke tests
 
 ## Verify
@@ -58,5 +71,5 @@ npm run build
 npm test
 ```
 
-The web build targets the bundled vinext/Cloudflare runtime. Player state is
-stored locally in the browser; no account or database is required.
+Player progress is stored locally in the browser; no account or external
+database is required.

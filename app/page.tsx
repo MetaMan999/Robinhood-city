@@ -1,5 +1,5 @@
-import RhoosCity from "./rhoos-city";
+import RhoosLiveCity from "./rhoos-live-city";
 
 export default function Home() {
-  return <RhoosCity />;
+  return <RhoosLiveCity />;
 }

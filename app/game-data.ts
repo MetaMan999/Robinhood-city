@@ -55,6 +55,19 @@ export type RuleDefinition = {
   enabled: boolean;
 };
 
+export type HookModule = {
+  id: string;
+  name: string;
+  code: string;
+  trigger: string;
+  action: string;
+  description: string;
+  color: string;
+  cost: number;
+  buildingId: string;
+  installedByDefault: boolean;
+};
+
 export const MAP_WIDTH = 1920;
 export const MAP_HEIGHT = 1240;
 export const ROAD_WIDTH = 96;
@@ -472,6 +485,87 @@ export const INITIAL_RULES: RuleDefinition[] = [
     action: "BUSINESS DEMAND +5%",
     description: "Loosens working-capital loans when employment is healthy.",
     enabled: false,
+  },
+];
+
+export const HOOK_MODULES: HookModule[] = [
+  {
+    id: "supply-router",
+    name: "Supply Router",
+    code: "HK-01",
+    trigger: "BEFORE_STOCKOUT",
+    action: "ROUTE INVENTORY",
+    description:
+      "Moves available material between city businesses before a production line stalls.",
+    color: "#67d7e5",
+    cost: 0,
+    buildingId: "yamato-steel",
+    installedByDefault: true,
+  },
+  {
+    id: "dynamic-market",
+    name: "Dynamic Market",
+    code: "HK-02",
+    trigger: "AFTER_SALE",
+    action: "ADJUST DEMAND",
+    description:
+      "Reads time, inventory, and foot traffic to tune market demand after every sale.",
+    color: "#ff5d9e",
+    cost: 0,
+    buildingId: "harbor-market",
+    installedByDefault: true,
+  },
+  {
+    id: "shift-rewards",
+    name: "Shift-to-Earn",
+    code: "HK-03",
+    trigger: "AFTER_SHIFT",
+    action: "BONUS +15%",
+    description:
+      "Adds a protocol-funded performance bonus when a verified city shift completes.",
+    color: "#f4d35e",
+    cost: 420,
+    buildingId: "city-hall",
+    installedByDefault: false,
+  },
+  {
+    id: "traffic-oracle",
+    name: "Traffic Oracle",
+    code: "HK-04",
+    trigger: "BEFORE_DISPATCH",
+    action: "OPTIMIZE ROUTE",
+    description:
+      "Uses live road congestion to increase successful freight deliveries.",
+    color: "#65d6a6",
+    cost: 520,
+    buildingId: "freight-depot",
+    installedByDefault: false,
+  },
+  {
+    id: "treasury-split",
+    name: "Treasury Split",
+    code: "HK-05",
+    trigger: "AFTER_REVENUE",
+    action: "60% PAY / 40% REINVEST",
+    description:
+      "Splits property income between the player wallet and automatic business growth.",
+    color: "#c9a7eb",
+    cost: 680,
+    buildingId: "kogane-bank",
+    installedByDefault: false,
+  },
+  {
+    id: "grid-guard",
+    name: "Grid Guard",
+    code: "HK-06",
+    trigger: "ON_LOAD_SPIKE",
+    action: "RELEASE RESERVE",
+    description:
+      "Releases emergency grid capacity when industrial load crosses its safe threshold.",
+    color: "#ff9966",
+    cost: 560,
+    buildingId: "hikari-power",
+    installedByDefault: false,
   },
 ];
 

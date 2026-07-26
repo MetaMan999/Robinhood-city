@@ -8,52 +8,45 @@ async function render() {
   const { default: worker } = await import(workerUrl.href);
 
   return worker.fetch(
-    new Request("http://localhost/", {
-      headers: { accept: "text/html" },
-    }),
-    {
-      ASSETS: {
-        fetch: async () => new Response("Not found", { status: 404 }),
-      },
-    },
-    {
-      waitUntil() {},
-      passThroughOnException() {},
-    },
+    new Request("http://localhost/", { headers: { accept: "text/html" } }),
+    { ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) } },
+    { waitUntil() {}, passThroughOnException() {} },
   );
 }
 
-test("server-renders the RHOOS CITY game shell", async () => {
+test("server-renders the first-person HookTech game shell", async () => {
   const response = await render();
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, /<title>RHOOS CITY — District One<\/title>/i);
-  assert.match(html, /RHOOS CITY/);
-  assert.match(html, /DISTRICT ONE/);
-  assert.match(html, /A PROGRAMMABLE ECONOMIC CITY/);
-  assert.match(html, /ENTER DISTRICT ONE/);
-  assert.match(html, /CITY PULSE/);
-  assert.match(html, /LOCAL SAVE READY/);
+  assert.match(html, /<title>RHOOS CITY — First Person HookTech<\/title>/i);
+  assert.match(html, /FIRST PERSON ECONOMIC PROTOCOL/);
+  assert.match(html, /The city is no longer a map/);
+  assert.match(html, /HOOKTECH OPERATING SYSTEM/);
+  assert.match(html, /ENTER THE CITY/);
+  assert.match(html, /og\.png/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton|Starter Project/i);
 });
 
-test("keeps the city systems and metadata in source", async () => {
+test("keeps the first-person renderer and HookTech runtime in source", async () => {
   const [game, data, layout, packageJson] = await Promise.all([
-    readFile(new URL("../app/rhoos-city.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/rhoos-live-city.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/game-data.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
     readFile(new URL("../package.json", import.meta.url), "utf8"),
   ]);
 
-  assert.match(game, /function renderCity/);
+  assert.match(game, /function renderWorld/);
+  assert.match(game, /function project/);
+  assert.match(game, /requestPointerLock/);
   assert.match(game, /function runEconomy/);
+  assert.match(game, /function addPacket/);
   assert.match(game, /localStorage/);
-  assert.match(game, /requestAnimationFrame/);
-  assert.match(data, /Rhoos City Hall/);
-  assert.match(data, /Automatic ore order/);
-  assert.match(data, /NPC_NAMES/);
-  assert.match(layout, /RHOOS CITY — District One/);
+  assert.match(data, /HOOK_MODULES/);
+  assert.match(data, /Shift-to-Earn/);
+  assert.match(data, /Traffic Oracle/);
+  assert.match(layout, /First Person HookTech/);
+  assert.match(layout, /summary_large_image/);
   assert.match(packageJson, /"name": "rhoos-city"/);
 });
