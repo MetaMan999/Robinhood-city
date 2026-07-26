@@ -251,6 +251,39 @@ canvas:focus-visible {
   line-height: 1.4;
 }
 
+.street-wallet {
+  display: grid;
+  grid-template-columns: 1.15fr 0.7fr 1fr;
+  margin-top: 10px;
+  border: 1px solid var(--line);
+}
+
+.street-wallet > div {
+  padding: 6px;
+  border-right: 1px solid var(--line);
+  background: rgba(17, 23, 36, 0.72);
+}
+
+.street-wallet > div:last-child {
+  border-right: 0;
+}
+
+.street-wallet span,
+.street-wallet strong {
+  display: block;
+}
+
+.street-wallet span {
+  color: var(--muted);
+  font-size: 5px;
+}
+
+.street-wallet strong {
+  margin-top: 2px;
+  color: var(--green);
+  font-size: 8px;
+}
+
 .objective-progress {
   height: 4px;
   margin-top: 10px;
@@ -263,6 +296,78 @@ canvas:focus-visible {
   background: var(--gold);
   box-shadow: 0 0 8px rgba(244, 211, 94, 0.5);
   transition: width 0.2s steps(10);
+}
+
+.cancel-street-gig {
+  margin-top: 9px;
+  padding: 6px 8px;
+  border: 1px solid rgba(255, 93, 158, 0.55);
+  background: rgba(255, 93, 158, 0.08);
+  color: var(--pink);
+  font-size: 6px;
+  cursor: pointer;
+}
+
+.traffic-network {
+  position: absolute;
+  z-index: 20;
+  top: 146px;
+  right: 18px;
+  width: 250px;
+  padding: 8px 10px;
+  border: 1px solid rgba(101, 214, 166, 0.42);
+  background: rgba(8, 11, 19, 0.8);
+  backdrop-filter: blur(7px);
+}
+
+.traffic-network header,
+.traffic-network i {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.traffic-network header {
+  color: var(--green);
+  font-size: 6px;
+  letter-spacing: 0.08em;
+}
+
+.traffic-network header b {
+  color: var(--paper);
+}
+
+.traffic-network > div {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 3px;
+  margin-top: 7px;
+}
+
+.traffic-network i {
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+  padding: 5px 2px;
+  border: 1px solid var(--line);
+  background: #111724;
+  font-style: normal;
+  font-size: 5px;
+}
+
+.traffic-network i span {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--muted);
+  text-overflow: ellipsis;
+}
+
+.traffic-network i.flowing b {
+  color: var(--green);
+}
+
+.traffic-network i.holding b {
+  color: #ff765e;
 }
 
 .hook-monitor {
@@ -435,6 +540,26 @@ canvas:focus-visible {
 .mini-objective {
   position: absolute;
   display: block;
+}
+
+.mini-gig {
+  z-index: 6;
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  transform: translate(-50%, -50%);
+  border: 1px solid #07101a;
+  border-radius: 50%;
+  background: var(--gig-color);
+  box-shadow: 0 0 6px var(--gig-color);
+}
+
+.mini-gig.active {
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--gig-color);
+  background: transparent;
+  animation: mini-pulse 0.8s infinite alternate;
 }
 
 .mini-road {
@@ -705,6 +830,90 @@ canvas:focus-visible {
 
 .person-target {
   --target-accent: var(--green);
+}
+
+.street-target {
+  background:
+    linear-gradient(110deg, color-mix(in srgb, var(--target-accent), transparent 84%), transparent 55%),
+    rgba(8, 11, 19, 0.9);
+}
+
+.street-gig-offer {
+  position: absolute;
+  z-index: 34;
+  left: 50%;
+  bottom: 82px;
+  width: min(440px, calc(100vw - 36px));
+  transform: translateX(-50%);
+  padding: 17px;
+  border: 1px solid var(--gig-color);
+  border-top: 4px solid var(--gig-color);
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--gig-color), transparent 86%), transparent 48%),
+    rgba(7, 10, 18, 0.95);
+  box-shadow: 0 16px 44px rgba(0, 0, 0, 0.48);
+  backdrop-filter: blur(9px);
+}
+
+.street-gig-offer > span {
+  color: var(--gig-color);
+  font-size: 7px;
+  letter-spacing: 0.13em;
+}
+
+.street-gig-offer h2 {
+  margin: 6px 0 2px;
+  font-family: Arial Black, Impact, sans-serif;
+  font-size: 23px;
+}
+
+.street-gig-offer > b,
+.street-gig-offer > small {
+  color: var(--muted);
+  font-size: 7px;
+}
+
+.street-gig-offer > p {
+  margin: 12px 0;
+  color: var(--paper);
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.street-gig-offer > div,
+.street-gig-offer footer {
+  display: flex;
+  gap: 7px;
+}
+
+.street-gig-offer > div strong {
+  padding: 6px 8px;
+  border: 1px solid var(--line-hi);
+  color: var(--gold);
+  font-size: 8px;
+}
+
+.street-gig-offer > small {
+  display: block;
+  margin: 11px 0;
+  line-height: 1.4;
+}
+
+.street-gig-offer footer button {
+  flex: 1;
+  min-height: 36px;
+  border: 1px solid var(--gig-color);
+  background: color-mix(in srgb, var(--gig-color), transparent 80%);
+  color: var(--gig-color);
+  font-size: 7px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.street-gig-offer footer button:last-child {
+  border-color: var(--line-hi);
+  background: transparent;
+  color: var(--muted);
 }
 
 .city-dialogue {
@@ -2327,6 +2536,73 @@ canvas:focus-visible {
   white-space: nowrap;
 }
 
+.spawn-select {
+  margin-top: 10px;
+  border: 1px solid var(--line);
+  background: #0b101a;
+}
+
+.spawn-select > header {
+  display: flex;
+  justify-content: space-between;
+  padding: 7px 9px;
+  border-bottom: 1px solid var(--line);
+  color: var(--cyan);
+  font-size: 6px;
+  letter-spacing: 0.1em;
+}
+
+.spawn-select > header b {
+  color: var(--green);
+}
+
+.spawn-select > div {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: var(--line);
+}
+
+.spawn-select button {
+  min-width: 0;
+  min-height: 74px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 8px;
+  border: 0;
+  background: #141b28;
+  color: var(--paper);
+  text-align: left;
+  cursor: pointer;
+}
+
+.spawn-select button:hover,
+.spawn-select button.active {
+  background:
+    linear-gradient(145deg, rgba(103, 215, 229, 0.18), transparent),
+    #17202d;
+  box-shadow: inset 0 -3px var(--cyan);
+}
+
+.spawn-select button strong {
+  color: var(--paper);
+  font-size: 7px;
+}
+
+.spawn-select button span {
+  margin: 3px 0;
+  color: var(--cyan);
+  font-size: 5px;
+}
+
+.spawn-select button p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 5px;
+  line-height: 1.35;
+}
+
 .intro-keys {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -2399,7 +2675,8 @@ kbd {
     display: none;
   }
 
-  .hook-monitor {
+  .hook-monitor,
+  .traffic-network {
     display: none;
   }
 
@@ -2536,6 +2813,10 @@ kbd {
     width: calc(100vw - 20px);
   }
 
+  .street-gig-offer {
+    bottom: 116px;
+  }
+
   .live-panel-backdrop {
     padding: 66px 8px 8px;
   }
@@ -2633,6 +2914,10 @@ kbd {
 
   .intro-pass-market > button {
     min-height: 92px;
+  }
+
+  .spawn-select > div {
+    grid-template-columns: 1fr 1fr;
   }
 }
 

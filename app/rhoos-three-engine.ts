@@ -41,6 +41,12 @@ export type Rhoos3DState = {
     angle: number;
     colorIndex: number;
   }>;
+  streetLayer: {
+    spawnId: string;
+    activeGigId: string | null;
+    gigsCompleted: number;
+    earnings: number;
+  };
   profile: { skin: string; jacket: string; accent: string };
   simMinutes: number;
   elapsed: number;
@@ -145,6 +151,59 @@ function makeSignSprite(building: Building) {
   return sprite;
 }
 
+function makeStreetSignSprite(label: string) {
+  const texture = makeCanvasTexture(640, 104, (context) => {
+    context.fillStyle = "rgba(10, 43, 48, .96)";
+    context.fillRect(0, 0, 640, 104);
+    context.strokeStyle = "#67d7e5";
+    context.lineWidth = 6;
+    context.strokeRect(5, 5, 630, 94);
+    context.shadowColor = "#67d7e5";
+    context.shadowBlur = 15;
+    context.fillStyle = "#f4f0e4";
+    context.font = `800 ${label.length > 24 ? 35 : 42}px "Courier New"`;
+    context.textAlign = "center";
+    context.textBaseline = "middle";
+    context.fillText(label, 320, 55, 600);
+  });
+  const sprite = new THREE.Sprite(
+    new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false }),
+  );
+  sprite.scale.set(94, 15, 1);
+  return sprite;
+}
+
+function makeStreetJobBeacon(colorValue: string) {
+  const group = new THREE.Group();
+  const material = new THREE.MeshBasicMaterial({
+    color: colorValue,
+    transparent: true,
+    opacity: 0.34,
+    depthWrite: false,
+  });
+  const beam = new THREE.Mesh(new THREE.CylinderGeometry(5, 9, 44, 18, 1, true), material);
+  beam.position.y = 22;
+  group.add(beam);
+  const ring = new THREE.Mesh(
+    new THREE.TorusGeometry(12, 1.5, 8, 28),
+    new THREE.MeshBasicMaterial({ color: colorValue }),
+  );
+  ring.rotation.x = Math.PI / 2;
+  ring.position.y = 0.8;
+  group.add(ring);
+  const marker = new THREE.Mesh(
+    new THREE.OctahedronGeometry(5, 0),
+    new THREE.MeshStandardMaterial({
+      color: colorValue,
+      emissive: colorValue,
+      emissiveIntensity: 1.8,
+    }),
+  );
+  marker.position.y = 25;
+  group.add(marker);
+  return { group, ring, marker };
+}
+
 function makeBuilding(building: Building, windowTransforms: THREE.Matrix4[]) {
   const group = new THREE.Group();
   group.userData.buildingId = building.id;
@@ -231,6 +290,11 @@ function makeBuilding(building: Building, windowTransforms: THREE.Matrix4[]) {
   const sign = makeSignSprite(building);
   sign.position.set(0, Math.min(height * 0.7, height - 18), building.h / 2 + 2);
   group.add(sign);
+  const sideSign = makeSignSprite(building);
+  sideSign.position.set(building.w / 2 + 2, Math.min(height * 0.55, height - 22), 0);
+  sideSign.rotation.y = Math.PI / 2;
+  sideSign.scale.multiplyScalar(0.72);
+  group.add(sideSign);
 
   const rows = Math.max(2, Math.floor((height - 34) / 22));
   const colsFront = Math.max(3, Math.floor((building.w - 24) / 34));
@@ -907,6 +971,37 @@ export function createRhoosThreeEngine(canvas: HTMLCanvasElement): RhoosThreeEng
     }
   }
 
+  const verticalStreetNames = ["HUDSON AVE", "MARKET AVE", "CENTRAL AVE", "EAST RIVER DR"];
+  const horizontalStreetNames = ["UPTOWN ST", "MIDTOWN ST", "HARBOR BLVD"];
+  for (let xIndex = 0; xIndex < ROAD_X.length; xIndex++) {
+    for (let zIndex = 0; zIndex < ROAD_Y.length; zIndex++) {
+      const pole = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.7, 0.9, 29, 7),
+        new THREE.MeshStandardMaterial({ color: 0x81909d, metalness: 0.72, roughness: 0.3 }),
+      );
+      pole.position.set(ROAD_X[xIndex] + 54, 14.5, ROAD_Y[zIndex] + 54);
+      scene.add(pole);
+      const streetSign = makeStreetSignSprite(
+        `${verticalStreetNames[xIndex]} × ${horizontalStreetNames[zIndex]}`,
+      );
+      streetSign.position.set(ROAD_X[xIndex] + 54, 31, ROAD_Y[zIndex] + 54);
+      scene.add(streetSign);
+    }
+  }
+
+  const streetGigSpecs = [
+    { id: "street-cafe-run", color: "#ff8fab", x: 1600, z: 950, targetX: 1390, targetZ: 950 },
+    { id: "street-garage-check", color: "#f4d35e", x: 1600, z: 610, targetX: 1600, targetZ: 930 },
+    { id: "street-market-stock", color: "#65d6a6", x: 1160, z: 610, targetX: 730, targetZ: 610 },
+    { id: "street-station-guide", color: "#67d7e5", x: 300, z: 950, targetX: 300, targetZ: 610 },
+  ];
+  const streetJobBeacons = streetGigSpecs.map((spec) => {
+    const beacon = makeStreetJobBeacon(spec.color);
+    beacon.group.position.set(spec.x, 0.2, spec.z);
+    scene.add(beacon.group);
+    return { ...beacon, spec };
+  });
+
   const cars: AnimatedCar[] = [];
   for (let index = 0; index < 26; index++) {
     const car = makeCar(index);
@@ -1132,6 +1227,22 @@ export function createRhoosThreeEngine(canvas: HTMLCanvasElement): RhoosThreeEng
         npc.leftArm.rotation.x = 0;
         npc.rightArm.rotation.x = 0;
       }
+    }
+
+    for (const beacon of streetJobBeacons) {
+      const active = state.streetLayer.activeGigId;
+      beacon.group.visible = !active || active === beacon.spec.id;
+      if (active === beacon.spec.id) {
+        beacon.group.position.set(beacon.spec.targetX, 0.2, beacon.spec.targetZ);
+      } else {
+        beacon.group.position.set(beacon.spec.x, 0.2, beacon.spec.z);
+      }
+      beacon.ring.rotation.z += delta * 1.8;
+      beacon.marker.rotation.y += delta * 2.2;
+      beacon.marker.position.y = 25 + Math.sin(state.elapsed * 3.2) * 3;
+      beacon.group.scale.setScalar(
+        active === beacon.spec.id ? 1.2 + Math.sin(state.elapsed * 4) * 0.05 : 0.86,
+      );
     }
 
     const horizontalGreen = Math.floor(state.simMinutes / 5) % 2 === 0;

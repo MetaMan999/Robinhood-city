@@ -5,11 +5,11 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://rhoos-city-district-one.meta5555.chatgpt.site"),
   title: "RHOOS CITY — Third-Person Work RPG",
   description:
-    "Purchase a v4 Hook Pass player card to enter a living city, drive multiple cars, talk to scheduled citizens, follow a live minimap, work jobs, and rise to boss.",
+    "Choose a neighborhood spawn, walk a living city, find street jobs, repair cars, earn wages, drive multiple vehicles, and build a v4 Hook player identity.",
   openGraph: {
-    title: "RHOOS CITY — Move. Talk. Drive. Work.",
+    title: "RHOOS CITY — Spawn. Walk. Work. Drive.",
     description:
-      "A third-person living-city RPG where v4 Hook Pass player cards unlock entry, work, driving, conversations, careers, and a live city economy.",
+      "A street-level living-city RPG with neighborhood spawns, walk-up jobs, mechanic work, traffic networks, v4 Hook player cards, and driveable cars.",
     images: [
       {
         url: "/og.png",
@@ -21,7 +21,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "RHOOS CITY — Move. Talk. Drive. Work.",
+    title: "RHOOS CITY — Spawn. Walk. Work. Drive.",
     description:
       "Drive the city, build a live work deck, rise from intern to boss, and build an economic life.",
     images: ["/og.png"],

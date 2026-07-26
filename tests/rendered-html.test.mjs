@@ -29,7 +29,7 @@ test("server-renders the NFT work TCG shell", async () => {
   assert.match(html, /Build a life\./);
   assert.match(html, /HOOKTECH CARD PROTOCOL/);
   assert.match(html, /SELECT A HOOK PASS TO ENTER/);
-  assert.match(html, /V4 HOOK PLAYER ASSETS \+ THIRD-PERSON CITY \+ DRIVING \+ WORK TCG/);
+  assert.match(html, /STREET LAYER \+ NEIGHBORHOOD SPAWNS \+ WALK-UP WORK \+ TRAFFIC NETWORK/);
   assert.match(html, /og\.png/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton|Starter Project/i);
 });
@@ -62,6 +62,13 @@ test("keeps the NFT, unique card, corporate, WebGL, soundtrack, and HookTech eng
   assert.match(game, /HOOK_PASSES/);
   assert.match(game, /purchaseHookPass/);
   assert.match(game, /ENTRY LOCKED \/ PURCHASE A V4 HOOK PASS FIRST/);
+  assert.match(game, /SPAWN_POINTS/);
+  assert.match(game, /STREET_GIGS/);
+  assert.match(game, /Sakura Express/i);
+  assert.match(game, /ROADSIDE REPAIR/);
+  assert.match(game, /acceptStreetGig/);
+  assert.match(game, /streetLayer\.earnings/);
+  assert.match(game, /TRAFFIC NETWORK \/ LIVE/);
   assert.match(game, /handbrake/);
   assert.match(game, /vehicle\.odometer/);
   assert.match(game, /navigator\.getGamepads/);
@@ -80,6 +87,9 @@ test("keeps the NFT, unique card, corporate, WebGL, soundtrack, and HookTech eng
   assert.match(threeEngine, /SpotLight/);
   assert.match(threeEngine, /makePlayerCharacter/);
   assert.match(threeEngine, /driveableCars/);
+  assert.match(threeEngine, /makeStreetSignSprite/);
+  assert.match(threeEngine, /makeStreetJobBeacon/);
+  assert.match(threeEngine, /streetJobBeacons/);
   assert.match(threeEngine, /followPosition/);
   assert.match(threeEngine, /function makeNpc/);
   assert.match(threeEngine, /firstPersonRig/);

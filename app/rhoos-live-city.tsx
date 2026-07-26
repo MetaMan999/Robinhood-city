@@ -159,6 +159,39 @@ type HookPass = {
   paid: number;
 };
 
+type SpawnPoint = {
+  id: string;
+  name: string;
+  district: string;
+  x: number;
+  y: number;
+  angle: number;
+  description: string;
+};
+
+type StreetGig = {
+  id: string;
+  title: string;
+  contact: string;
+  category: "COURIER" | "MECHANIC" | "MARKET" | "STATION";
+  x: number;
+  y: number;
+  targetX: number;
+  targetY: number;
+  pay: number;
+  reputation: number;
+  color: string;
+  description: string;
+  objective: string;
+};
+
+type StreetLayerState = {
+  spawnId: string;
+  activeGigId: string | null;
+  gigsCompleted: number;
+  earnings: number;
+};
+
 const HOOK_PASSES = [
   {
     id: "runner-pass",
@@ -188,6 +221,108 @@ const HOOK_PASSES = [
     description: "City entry plus programmable treasury splits for owned businesses.",
   },
 ] as const;
+
+const SPAWN_POINTS: SpawnPoint[] = [
+  {
+    id: "central-station",
+    name: "CENTRAL STATION",
+    district: "WEST MARKET",
+    x: 300,
+    y: 610,
+    angle: 0,
+    description: "Transit crowds, starter work, taxis, and fast access downtown.",
+  },
+  {
+    id: "city-hall",
+    name: "CITY HALL PLAZA",
+    district: "FINANCIAL CORE",
+    x: 1160,
+    y: 950,
+    angle: -Math.PI / 2,
+    description: "Corporate towers, civic contracts, and the central loop.",
+  },
+  {
+    id: "harbor-loop",
+    name: "HARBOR LOOP",
+    district: "HARBOR DISTRICT",
+    x: 1600,
+    y: 950,
+    angle: Math.PI,
+    description: "Markets, cafés, nightlife, cars, and courier opportunities.",
+  },
+  {
+    id: "west-works",
+    name: "WEST WORKS",
+    district: "UPTOWN",
+    x: 300,
+    y: 270,
+    angle: Math.PI / 2,
+    description: "Factories, utilities, warehouses, and hands-on mechanic work.",
+  },
+];
+
+const STREET_GIGS: StreetGig[] = [
+  {
+    id: "street-cafe-run",
+    title: "SAKURA EXPRESS",
+    contact: "Mika / Sakura Café",
+    category: "COURIER",
+    x: 1600,
+    y: 950,
+    targetX: 1390,
+    targetY: 950,
+    pay: 180,
+    reputation: 1,
+    color: "#ff8fab",
+    description: "A market vendor needs a hot order before the morning rush.",
+    objective: "Walk the order west to the Harbor Market delivery point.",
+  },
+  {
+    id: "street-garage-check",
+    title: "ROADSIDE REPAIR",
+    contact: "Kenji / Sunrise Auto",
+    category: "MECHANIC",
+    x: 1600,
+    y: 610,
+    targetX: 1600,
+    targetY: 930,
+    pay: 260,
+    reputation: 2,
+    color: "#f4d35e",
+    description: "A city coupe needs a quick diagnostic and road-ready repair.",
+    objective: "Reach the marked vehicle bay and complete the repair.",
+  },
+  {
+    id: "street-market-stock",
+    title: "MARKET STOCK RUN",
+    contact: "Aya / Harbor Market",
+    category: "MARKET",
+    x: 1160,
+    y: 610,
+    targetX: 730,
+    targetY: 610,
+    pay: 220,
+    reputation: 1,
+    color: "#65d6a6",
+    description: "Move a small shipment through the downtown pedestrian route.",
+    objective: "Carry the stock west to the Kogane receiving marker.",
+  },
+  {
+    id: "street-station-guide",
+    title: "COMMUTER GUIDE",
+    contact: "Haru / Central Station",
+    category: "STATION",
+    x: 300,
+    y: 950,
+    targetX: 300,
+    targetY: 610,
+    pay: 160,
+    reputation: 1,
+    color: "#67d7e5",
+    description: "Help a group of new arrivals find the morning train entrance.",
+    objective: "Walk north to Central Station and check in at the platform marker.",
+  },
+];
 
 const CAREER_TRACKS: CareerTrack[] = [
   {
@@ -319,6 +454,7 @@ type Engine = {
   profile: CharacterProfile;
   nftCharacter: NftCharacter | null;
   hookPass: HookPass | null;
+  streetLayer: StreetLayerState;
   tcg: TcgProgress;
   corporate: { companyId: string | null; xp: number; shifts: number };
   selectedId: string;
@@ -400,6 +536,12 @@ function initialEngine(): Engine {
     profile: defaultProfile(),
     nftCharacter: null,
     hookPass: null,
+    streetLayer: {
+      spawnId: "city-hall",
+      activeGigId: null,
+      gigsCompleted: 0,
+      earnings: 0,
+    },
     tcg: {
       credits: 0,
       rating: 800,
@@ -724,6 +866,28 @@ function getNearestDriveableCar(engine: Engine) {
       distance: Math.hypot(engine.player.x - car.x, engine.player.y - car.y),
     }))
     .sort((a, b) => a.distance - b.distance)[0];
+}
+
+function getStreetInteraction(engine: Engine) {
+  const active = engine.streetLayer.activeGigId
+    ? STREET_GIGS.find((gig) => gig.id === engine.streetLayer.activeGigId)
+    : null;
+  if (active) {
+    return {
+      gig: active,
+      kind: "destination" as const,
+      x: active.targetX,
+      y: active.targetY,
+      distance: Math.hypot(engine.player.x - active.targetX, engine.player.y - active.targetY),
+    };
+  }
+  return STREET_GIGS.map((gig) => ({
+    gig,
+    kind: "contact" as const,
+    x: gig.x,
+    y: gig.y,
+    distance: Math.hypot(engine.player.x - gig.x, engine.player.y - gig.y),
+  })).sort((a, b) => a.distance - b.distance)[0];
 }
 
 function cityLocation(engine: Engine) {
@@ -1383,6 +1547,8 @@ export default function RhoosLiveCity() {
   const [entryMessage, setEntryMessage] = useState(
     "CHOOSE A V4 HOOK PASS TO CREATE YOUR PLAYABLE CITY IDENTITY",
   );
+  const [selectedSpawnId, setSelectedSpawnId] = useState("city-hall");
+  const [streetOffer, setStreetOffer] = useState<StreetGig | null>(null);
 
   const refresh = useCallback(() => setRevision((value) => value + 1), []);
 
@@ -1430,6 +1596,7 @@ export default function RhoosLiveCity() {
             },
           },
           corporate: { ...base.corporate, ...saved.corporate },
+          streetLayer: { ...base.streetLayer, ...saved.streetLayer },
           businesses: { ...base.businesses, ...saved.businesses },
           installedHooks: saved.installedHooks ?? base.installedHooks,
           disabledHooks: saved.disabledHooks ?? [],
@@ -1510,6 +1677,30 @@ export default function RhoosLiveCity() {
       refresh();
       return;
     }
+    const streetInteraction = getStreetInteraction(engine);
+    if (
+      streetInteraction?.kind === "destination" &&
+      streetInteraction.distance < 105
+    ) {
+      const { gig } = streetInteraction;
+      engine.cash += gig.pay;
+      engine.reputation += gig.reputation;
+      engine.profile.totalEarned += gig.pay;
+      engine.profile.careerXp += 18 + gig.reputation * 4;
+      engine.streetLayer.gigsCompleted += 1;
+      engine.streetLayer.earnings += gig.pay;
+      engine.streetLayer.activeGigId = null;
+      if (gig.category === "MECHANIC") {
+        engine.vehicle.condition = clamp(engine.vehicle.condition + 28, 0, 100);
+      }
+      addEvent(
+        engine,
+        `${gig.title} complete. ${formatMoney(gig.pay)} paid at street level.`,
+      );
+      soundRef.current?.blip("reward");
+      refresh();
+      return;
+    }
     const nearestVehicle = getNearestDriveableCar(engine);
     if (nearestVehicle && nearestVehicle.distance < 145) {
       const { car } = nearestVehicle;
@@ -1530,6 +1721,18 @@ export default function RhoosLiveCity() {
       setDialogue(null);
       soundRef.current?.blip("reward");
       addEvent(engine, `${car.name} ignition on. Drive the city with WASD.`);
+      refresh();
+      return;
+    }
+    if (
+      streetInteraction?.kind === "contact" &&
+      streetInteraction.distance < 105
+    ) {
+      setPanel(null);
+      setDialogue(null);
+      setStreetOffer(streetInteraction.gig);
+      soundRef.current?.blip("interact");
+      addEvent(engine, `${streetInteraction.gig.contact} offered street work.`);
       refresh();
       return;
     }
@@ -1660,6 +1863,7 @@ export default function RhoosLiveCity() {
       if (key === "escape") {
         setPanel(null);
         setDialogue(null);
+        setStreetOffer(null);
       }
     };
     const onKeyUp = (event: KeyboardEvent) => {
@@ -2013,12 +2217,22 @@ export default function RhoosLiveCity() {
     (id) => !engine.disabledHooks.includes(id),
   ).length;
   const nearSelected = distanceToRect(engine.player.x, engine.player.y, selected) < 105;
+  const streetInteraction = getStreetInteraction(engine);
+  const activeStreetGig = engine.streetLayer.activeGigId
+    ? STREET_GIGS.find((gig) => gig.id === engine.streetLayer.activeGigId) ?? null
+    : null;
+  const nearStreetInteraction =
+    !engine.vehicle.inCar &&
+    Boolean(streetInteraction && streetInteraction.distance < 105);
   const nearestVehicle = getNearestDriveableCar(engine);
   const nearVehicle =
-    !engine.vehicle.inCar && Boolean(nearestVehicle && nearestVehicle.distance < 145);
+    !engine.vehicle.inCar &&
+    !nearStreetInteraction &&
+    Boolean(nearestVehicle && nearestVehicle.distance < 145);
   const nearestNpc = getNearestNpc(engine);
   const nearNpc =
     !engine.vehicle.inCar &&
+    !nearStreetInteraction &&
     !nearVehicle &&
     Boolean(nearestNpc && nearestNpc.distance < 92);
   const location = cityLocation(engine);
@@ -2093,6 +2307,32 @@ export default function RhoosLiveCity() {
     engine.activeJob = null;
     setWorkGame(null);
     addEvent(engine, `${job.title} contract released back to the city.`);
+    soundRef.current?.blip("interact");
+    refresh();
+  }
+
+  function acceptStreetGig(gig: StreetGig) {
+    if (engine.streetLayer.activeGigId || engine.activeJob) {
+      addEvent(engine, "Finish the current contract before taking street work.");
+      soundRef.current?.blip("error");
+      setStreetOffer(null);
+      refresh();
+      return;
+    }
+    engine.streetLayer.activeGigId = gig.id;
+    setStreetOffer(null);
+    addEvent(engine, `${gig.title} accepted. Destination beacon is live.`);
+    soundRef.current?.blip("hook");
+    refresh();
+  }
+
+  function cancelStreetGig() {
+    const gig = STREET_GIGS.find(
+      (candidate) => candidate.id === engine.streetLayer.activeGigId,
+    );
+    if (!gig) return;
+    engine.streetLayer.activeGigId = null;
+    addEvent(engine, `${gig.title} returned to the street jobs network.`);
     soundRef.current?.blip("interact");
     refresh();
   }
@@ -2214,6 +2454,19 @@ export default function RhoosLiveCity() {
       soundRef.current?.blip("error");
       return;
     }
+    const spawn =
+      SPAWN_POINTS.find((point) => point.id === selectedSpawnId) ??
+      SPAWN_POINTS[1];
+    current.streetLayer.spawnId = spawn.id;
+    current.player.x = spawn.x;
+    current.player.y = spawn.y;
+    current.player.angle = spawn.angle;
+    current.player.facing = spawn.angle;
+    current.player.velocityX = 0;
+    current.player.velocityY = 0;
+    current.vehicle.inCar = false;
+    current.vehicle.activeId = null;
+    addEvent(current, `Spawned on foot at ${spawn.name}. Street layer active.`);
     if (audioOn) {
       await soundRef.current?.start();
       soundRef.current?.setMuted(false);
@@ -2454,6 +2707,8 @@ export default function RhoosLiveCity() {
           <strong>
             {engine.vehicle.inCar
               ? "FREE DRIVE / NEO-MANHATTAN"
+              : activeStreetGig
+                ? `${activeStreetGig.category}: ${activeStreetGig.title}`
               : activeJob
               ? engine.activeJob?.working
                 ? `WORKING: ${activeJob.title}`
@@ -2465,17 +2720,48 @@ export default function RhoosLiveCity() {
           <p>
             {engine.vehicle.inCar
               ? "Cruise the avenues, follow traffic, use Space to handbrake, and press E to exit when stopped."
+              : activeStreetGig
+                ? `${activeStreetGig.objective} Press E inside the destination beacon.`
               : activeJob
               ? engine.activeJob?.working
                 ? "Stay connected while the shift verifies."
                 : "Follow the city map, face the building, press E."
               : "Enter a business terminal or open the city jobs channel."}
           </p>
+          <div className="street-wallet">
+            <div><span>YOUR CASH</span><strong>{formatMoney(engine.cash)}</strong></div>
+            <div><span>STREET JOBS</span><strong>{engine.streetLayer.gigsCompleted}</strong></div>
+            <div><span>STREET EARNED</span><strong>{formatMoney(engine.streetLayer.earnings)}</strong></div>
+          </div>
           {activeJob && (
             <div className="objective-progress">
               <i style={{ width: `${jobProgress}%` }} />
             </div>
           )}
+          {activeStreetGig && (
+            <button className="cancel-street-gig" onClick={cancelStreetGig}>
+              RELEASE STREET JOB
+            </button>
+          )}
+        </aside>
+
+        <aside className="traffic-network">
+          <header>
+            <span>TRAFFIC NETWORK / LIVE</span>
+            <b>{Math.round(engine.traffic)}% LOAD</b>
+          </header>
+          <div>
+            {["HUDSON", "MARKET", "CENTRAL", "EAST RIVER"].map((road, index) => {
+              const flowing =
+                (Math.floor(engine.simMinutes / 5) + index) % 2 === 0;
+              return (
+                <i key={road} className={flowing ? "flowing" : "holding"}>
+                  <span>{road}</span>
+                  <b>{flowing ? "FLOW" : "HOLD"}</b>
+                </i>
+              );
+            })}
+          </div>
         </aside>
 
         <aside className="hook-monitor">
@@ -2561,6 +2847,23 @@ export default function RhoosLiveCity() {
                 }}
               />
             )}
+            {(activeStreetGig ? [activeStreetGig] : STREET_GIGS).map((gig) => {
+              const active = activeStreetGig?.id === gig.id;
+              const markerX = active ? gig.targetX : gig.x;
+              const markerY = active ? gig.targetY : gig.y;
+              return (
+                <i
+                  key={`mini-gig-${gig.id}`}
+                  className={`mini-gig ${active ? "active" : ""}`}
+                  style={{
+                    left: `${(markerX / MAP_WIDTH) * 100}%`,
+                    top: `${(markerY / MAP_HEIGHT) * 100}%`,
+                    "--gig-color": gig.color,
+                  } as React.CSSProperties}
+                  title={gig.title}
+                />
+              );
+            })}
             <i
               className="mini-player"
               style={{
@@ -2570,7 +2873,7 @@ export default function RhoosLiveCity() {
               }}
             />
           </div>
-          <div className="mini-map-key"><span>● YOU</span><span>◆ CARS</span><span>◎ JOB</span></div>
+          <div className="mini-map-key"><span>● YOU</span><span>◆ CARS</span><span>! STREET JOB</span></div>
         </aside>
 
         <nav className="live-nav" aria-label="Game panels">
@@ -2667,6 +2970,27 @@ export default function RhoosLiveCity() {
           )}
         </div>
 
+        {nearStreetInteraction && streetInteraction && !panel && !streetOffer && (
+          <div
+            className="target-card street-target"
+            style={{ "--target-accent": streetInteraction.gig.color } as React.CSSProperties}
+          >
+            <span>
+              {streetInteraction.kind === "destination" ? "JOB DESTINATION" : "STREET WORK"} /{" "}
+              {Math.round(streetInteraction.distance)}m
+            </span>
+            <strong>
+              E — {streetInteraction.kind === "destination" ? "COMPLETE" : "MEET"}{" "}
+              {streetInteraction.gig.title}
+            </strong>
+            <p>
+              {streetInteraction.kind === "destination"
+                ? `${formatMoney(streetInteraction.gig.pay)} wage ready for settlement.`
+                : `${streetInteraction.gig.contact} / ${formatMoney(streetInteraction.gig.pay)} PAY`}
+            </p>
+          </div>
+        )}
+
         {nearVehicle && !panel && (
           <div className="target-card vehicle-target">
             <span>ENTERABLE VEHICLE / {Math.round(nearestVehicle?.distance ?? 0)}m</span>
@@ -2683,12 +3007,33 @@ export default function RhoosLiveCity() {
           </div>
         )}
 
-        {focused && !panel && !nearVehicle && !nearNpc && !engine.vehicle.inCar && !dialogue && (
+        {focused && !panel && !nearStreetInteraction && !nearVehicle && !nearNpc && !engine.vehicle.inCar && !dialogue && !streetOffer && (
           <div className="target-card" style={{ "--target-accent": focused.building.accent } as React.CSSProperties}>
             <span>{focused.building.kind.toUpperCase()} / {Math.round(focused.distance)}m</span>
             <strong>{focused.building.name}</strong>
             <p>{focused.building.description}</p>
           </div>
+        )}
+
+        {streetOffer && !panel && (
+          <aside
+            className="street-gig-offer"
+            style={{ "--gig-color": streetOffer.color } as React.CSSProperties}
+          >
+            <span>{streetOffer.category} / WALK-UP CONTRACT</span>
+            <h2>{streetOffer.title}</h2>
+            <b>{streetOffer.contact}</b>
+            <p>{streetOffer.description}</p>
+            <div>
+              <strong>{formatMoney(streetOffer.pay)} PAY</strong>
+              <strong>+{streetOffer.reputation} REP</strong>
+            </div>
+            <small>{streetOffer.objective}</small>
+            <footer>
+              <button onClick={() => acceptStreetGig(streetOffer)}>ACCEPT STREET JOB</button>
+              <button onClick={() => setStreetOffer(null)}>NOT NOW</button>
+            </footer>
+          </aside>
         )}
 
         {dialogue && !panel && !engine.vehicle.inCar && (
@@ -3455,6 +3800,25 @@ export default function RhoosLiveCity() {
                 <span>{entryMessage}</span>
                 <b>CITY CASH {formatMoney(engine.cash)}</b>
               </div>
+              <div className="spawn-select">
+                <header>
+                  <span>STREET LAYER / CHOOSE SPAWN</span>
+                  <b>ON-FOOT ARRIVAL</b>
+                </header>
+                <div>
+                  {SPAWN_POINTS.map((spawn) => (
+                    <button
+                      key={spawn.id}
+                      className={selectedSpawnId === spawn.id ? "active" : ""}
+                      onClick={() => setSelectedSpawnId(spawn.id)}
+                    >
+                      <strong>{spawn.name}</strong>
+                      <span>{spawn.district}</span>
+                      <p>{spawn.description}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
               <div className="intro-keys">
                 <div><kbd>WASD</kbd><span>MOVE</span></div>
                 <div><kbd>ARROWS</kbd><span>CAMERA</span></div>
@@ -3468,7 +3832,7 @@ export default function RhoosLiveCity() {
               >
                 {engine.hookPass ? `ENTER WITH ${engine.hookPass.name}` : "SELECT A HOOK PASS TO ENTER"} <b>→</b>
               </button>
-              <small>V4 HOOK PLAYER ASSETS + THIRD-PERSON CITY + DRIVING + WORK TCG / VERSION 0.8</small>
+              <small>STREET LAYER + NEIGHBORHOOD SPAWNS + WALK-UP WORK + TRAFFIC NETWORK / VERSION 0.9</small>
             </div>
           </div>
         )}

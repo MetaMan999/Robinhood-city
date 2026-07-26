@@ -7,10 +7,10 @@ free origin character or verify an ERC-721 character NFT, build a
 work deck, win corporate job encounters, rise from intern to District Boss,
 own businesses, and automate the economy with HookTech.
 
-Version 0.8 adds purchasable v4 Hook Pass player-card entry assets, GTA-like
-easy vehicle entry, a four-car driveable fleet, nearby-person targeting,
-interactive dialogue bubbles, street and district labels, and a permanent
-minimap with roads, buildings, cars, and job markers.
+Version 0.9 adds a second, street-level gameplay layer with four selectable
+spawn neighborhoods, walk-up job contacts, destination beacons, repeatable
+courier, mechanic, market, and station work, direct wage payouts, named street
+signs, brighter business signs, and a live traffic-signal network.
 
 ## Run locally
 
@@ -92,12 +92,20 @@ Open the local address printed by the development server.
 
 ## City-life systems
 
+- Four on-foot spawn points: Central Station, City Hall Plaza, Harbor Loop, and
+  West Works
+- Walk-up street jobs with visible 3D contacts and destination beacons
+- Repeatable courier, mechanic, market-stock, and commuter-guide work with
+  immediate city-cash wages, reputation, and career XP
+- Mechanic work restores vehicle condition
 - Twenty scheduled residents who can be approached and spoken to
 - Contextual dialogue about jobs, traffic, businesses, property, and nightlife
 - Permanent minimap with player heading, roads, buildings, enterable cars, and
   active-job destination
 - Live street and district names while walking or driving
 - Interaction priority that naturally selects a nearby car, person, or building
+- Named intersection signs, two-sided illuminated business signs, traffic
+  lights, and a live four-corridor signal network display
 
 Prototype company names are used as text-only roleplay workplaces. The game is
 not affiliated with, endorsed by, or sponsored by those companies or S&P Dow
