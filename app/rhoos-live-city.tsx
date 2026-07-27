@@ -46,6 +46,12 @@ import {
   corporateRole,
   type CorporateCompany,
 } from "./corporate-data";
+import {
+  COOPERATIVES,
+  ECONOMY_ASSETS,
+  type Cooperative,
+  type EconomyAsset,
+} from "./economy-data";
 
 const VIEW_W = 1280;
 const VIEW_H = 720;
@@ -55,7 +61,15 @@ const CAMERA_HEIGHT = 46;
 const SAVE_KEY = "rhoos-city-hooktech-v3";
 const TAU = Math.PI * 2;
 
-type Panel = null | "building" | "jobs" | "hooks" | "map" | "player" | "cards";
+type Panel =
+  | null
+  | "building"
+  | "jobs"
+  | "hooks"
+  | "map"
+  | "player"
+  | "cards"
+  | "exchange";
 type Weather = "CLEAR" | "MIST" | "RAIN";
 type CareerId = "operator" | "courier" | "merchant" | "analyst" | "founder";
 
@@ -190,6 +204,25 @@ type StreetLayerState = {
   activeGigId: string | null;
   gigsCompleted: number;
   earnings: number;
+};
+
+type MarketListing = {
+  assetId: string;
+  seller: string;
+  ask: number;
+  available: boolean;
+  serial: string;
+};
+
+type AssetEconomyState = {
+  ownedAssetIds: string[];
+  listings: MarketListing[];
+  tradeHistory: string[];
+  tradesCompleted: number;
+  cooperativeId: string | null;
+  cooperativeContribution: number;
+  cooperativeEarnings: number;
+  nextYieldMinute: number;
 };
 
 const HOOK_PASSES = [
@@ -422,6 +455,23 @@ function initialCardInstances() {
   );
 }
 
+function initialMarketListings(): MarketListing[] {
+  const sellers = [
+    "@AoiTransit",
+    "@HarborMika",
+    "@EastWorksKen",
+    "@LoopCapital",
+    "@SakuraShift",
+  ];
+  return ECONOMY_ASSETS.map((asset, index) => ({
+    assetId: asset.id,
+    seller: sellers[index % sellers.length],
+    ask: Math.round(asset.baseValue * (0.94 + (index % 4) * 0.045)),
+    available: true,
+    serial: `${asset.code}-${String(index + 1).padStart(3, "0")}`,
+  }));
+}
+
 type Engine = {
   player: {
     x: number;
@@ -455,6 +505,7 @@ type Engine = {
   nftCharacter: NftCharacter | null;
   hookPass: HookPass | null;
   streetLayer: StreetLayerState;
+  assetEconomy: AssetEconomyState;
   tcg: TcgProgress;
   corporate: { companyId: string | null; xp: number; shifts: number };
   selectedId: string;
@@ -542,6 +593,16 @@ function initialEngine(): Engine {
       gigsCompleted: 0,
       earnings: 0,
     },
+    assetEconomy: {
+      ownedAssetIds: [],
+      listings: initialMarketListings(),
+      tradeHistory: [],
+      tradesCompleted: 0,
+      cooperativeId: null,
+      cooperativeContribution: 0,
+      cooperativeEarnings: 0,
+      nextYieldMinute: 420,
+    },
     tcg: {
       credits: 0,
       rating: 800,
@@ -619,6 +680,32 @@ function createCardInstance(cardId: string, engine: Engine): CardInstance {
     plays: 0,
     wins: 0,
   };
+}
+
+function assetLiveValue(asset: EconomyAsset, engine: Engine) {
+  const averageDemand =
+    Object.values(engine.businesses).reduce((sum, business) => sum + business.demand, 0) /
+    Math.max(1, Object.keys(engine.businesses).length);
+  const activity =
+    asset.category === "VEHICLE"
+      ? 0.82 + engine.traffic / 230
+      : asset.category === "BUSINESS" || asset.category === "PROPERTY"
+        ? 0.72 + averageDemand / 190
+        : asset.category === "CONTRACT"
+          ? 0.88 + engine.employment / 420
+          : 0.9 + engine.installedHooks.length / 35;
+  const progression =
+    1 +
+    Math.min(0.18, engine.reputation * 0.004) +
+    Math.min(0.12, engine.jobsCompleted * 0.003);
+  return Math.round(asset.baseValue * clamp(activity * progression, 0.78, 1.42));
+}
+
+function assetPortfolioValue(engine: Engine) {
+  return engine.assetEconomy.ownedAssetIds.reduce((total, id) => {
+    const asset = ECONOMY_ASSETS.find((candidate) => candidate.id === id);
+    return total + (asset ? assetLiveValue(asset, engine) : 0);
+  }, 0);
 }
 
 function clamp(value: number, min: number, max: number) {
@@ -1516,6 +1603,37 @@ function runEconomy(engine: Engine) {
     97,
   );
 
+  const absoluteMinutes = engine.day * 1440 + engine.simMinutes;
+  if (absoluteMinutes >= engine.assetEconomy.nextYieldMinute) {
+    const ownedYield = engine.assetEconomy.ownedAssetIds.reduce((total, id) => {
+      const asset = ECONOMY_ASSETS.find((candidate) => candidate.id === id);
+      if (!asset) return total;
+      const liveRatio = assetLiveValue(asset, engine) / asset.baseValue;
+      return total + Math.max(1, Math.round(asset.yieldPerCycle * liveRatio));
+    }, 0);
+    const cooperative = COOPERATIVES.find(
+      (candidate) => candidate.id === engine.assetEconomy.cooperativeId,
+    );
+    const cooperativeBase = cooperative
+      ? 10 + Math.min(28, engine.streetLayer.gigsCompleted * 2)
+      : 0;
+    const gross = ownedYield + cooperativeBase;
+    if (gross > 0) {
+      const contribution = cooperative
+        ? Math.max(2, Math.round(gross * cooperative.revenueShare))
+        : 0;
+      const payout = gross - contribution;
+      engine.cash += payout;
+      engine.assetEconomy.cooperativeContribution += contribution;
+      engine.assetEconomy.cooperativeEarnings += cooperativeBase;
+      addEvent(
+        engine,
+        `${cooperative?.code ?? "PORTFOLIO"} cycle settled ${formatMoney(payout)} / ${formatMoney(contribution)} shared.`,
+      );
+    }
+    engine.assetEconomy.nextYieldMinute = absoluteMinutes + 30;
+  }
+
   if (installed.length && engine.block % 5 === 0) {
     const hook = installed[engine.block % installed.length];
     addPacket(engine, hook, "STATE VERIFIED / NO ACTION");
@@ -1597,6 +1715,18 @@ export default function RhoosLiveCity() {
           },
           corporate: { ...base.corporate, ...saved.corporate },
           streetLayer: { ...base.streetLayer, ...saved.streetLayer },
+          assetEconomy: {
+            ...base.assetEconomy,
+            ...saved.assetEconomy,
+            ownedAssetIds:
+              saved.assetEconomy?.ownedAssetIds ?? base.assetEconomy.ownedAssetIds,
+            listings:
+              saved.assetEconomy?.listings?.length === base.assetEconomy.listings.length
+                ? saved.assetEconomy.listings
+                : base.assetEconomy.listings,
+            tradeHistory:
+              saved.assetEconomy?.tradeHistory ?? base.assetEconomy.tradeHistory,
+          },
           businesses: { ...base.businesses, ...saved.businesses },
           installedHooks: saved.installedHooks ?? base.installedHooks,
           disabledHooks: saved.disabledHooks ?? [],
@@ -1818,6 +1948,7 @@ export default function RhoosLiveCity() {
           "m",
           "p",
           "c",
+          "v",
           "r",
           " ",
           "arrowleft",
@@ -1837,6 +1968,7 @@ export default function RhoosLiveCity() {
       if (key === "m") setPanel((current) => (current === "map" ? null : "map"));
       if (key === "p") setPanel((current) => (current === "player" ? null : "player"));
       if (key === "c") setPanel((current) => (current === "cards" ? null : "cards"));
+      if (key === "v") setPanel((current) => (current === "exchange" ? null : "exchange"));
       if (key === "r" && engineRef.current.vehicle.inCar) {
         const current = engineRef.current;
         current.vehicle.x = 1050;
@@ -2212,6 +2344,13 @@ export default function RhoosLiveCity() {
     (company) => company.id === engine.corporate.companyId,
   );
   const currentCorporateRole = corporateRole(engine.corporate.xp);
+  const currentCooperative = COOPERATIVES.find(
+    (cooperative) => cooperative.id === engine.assetEconomy.cooperativeId,
+  );
+  const portfolioValue = assetPortfolioValue(engine);
+  const ownedEconomyAssets = ECONOMY_ASSETS.filter((asset) =>
+    engine.assetEconomy.ownedAssetIds.includes(asset.id),
+  );
   const installedCount = engine.installedHooks.length;
   const activeHookCount = engine.installedHooks.filter(
     (id) => !engine.disabledHooks.includes(id),
@@ -2335,6 +2474,87 @@ export default function RhoosLiveCity() {
     addEvent(engine, `${gig.title} returned to the street jobs network.`);
     soundRef.current?.blip("interact");
     refresh();
+  }
+
+  function buyEconomyAsset(asset: EconomyAsset) {
+    const listing = engine.assetEconomy.listings.find(
+      (candidate) => candidate.assetId === asset.id && candidate.available,
+    );
+    if (!listing || engine.assetEconomy.ownedAssetIds.includes(asset.id)) return;
+    const price = Math.round((listing.ask + assetLiveValue(asset, engine)) / 2);
+    if (engine.cash < price) {
+      addEvent(engine, `${formatMoney(price - engine.cash)} more required for ${asset.name}.`);
+      soundRef.current?.blip("error");
+      refresh();
+      return;
+    }
+    engine.cash -= price;
+    engine.assetEconomy.ownedAssetIds.push(asset.id);
+    engine.assetEconomy.tradesCompleted += 1;
+    listing.available = false;
+    engine.assetEconomy.tradeHistory = [
+      `BOUGHT ${listing.serial} FROM ${listing.seller} / ${formatMoney(price)}`,
+      ...engine.assetEconomy.tradeHistory,
+    ].slice(0, 8);
+    addEvent(engine, `${asset.name} ownership settled for ${formatMoney(price)}.`);
+    soundRef.current?.blip("reward");
+    setSaveLabel("ASSET TRADE UNSAVED");
+    refresh();
+  }
+
+  function sellEconomyAsset(asset: EconomyAsset) {
+    if (!engine.assetEconomy.ownedAssetIds.includes(asset.id)) return;
+    const liveValue = assetLiveValue(asset, engine);
+    const settlement = Math.round(liveValue * 0.9);
+    engine.assetEconomy.ownedAssetIds =
+      engine.assetEconomy.ownedAssetIds.filter((id) => id !== asset.id);
+    engine.cash += settlement;
+    engine.assetEconomy.tradesCompleted += 1;
+    const listing = engine.assetEconomy.listings.find(
+      (candidate) => candidate.assetId === asset.id,
+    );
+    if (listing) {
+      listing.available = true;
+      listing.seller = engine.nftCharacter?.name ?? engine.profile.callSign;
+      listing.ask = Math.round(liveValue * 1.04);
+    }
+    engine.assetEconomy.tradeHistory = [
+      `SOLD ${listing?.serial ?? asset.code} TO CITY EXCHANGE / ${formatMoney(settlement)}`,
+      ...engine.assetEconomy.tradeHistory,
+    ].slice(0, 8);
+    addEvent(engine, `${asset.name} sold for ${formatMoney(settlement)}.`);
+    soundRef.current?.blip("reward");
+    setSaveLabel("ASSET TRADE UNSAVED");
+    refresh();
+  }
+
+  function joinCooperative(cooperative: Cooperative) {
+    const switching =
+      engine.assetEconomy.cooperativeId &&
+      engine.assetEconomy.cooperativeId !== cooperative.id;
+    engine.assetEconomy.cooperativeId = cooperative.id;
+    if (switching) {
+      engine.assetEconomy.cooperativeContribution = Math.round(
+        engine.assetEconomy.cooperativeContribution * 0.75,
+      );
+    }
+    addEvent(engine, `${cooperative.name} cooperative membership activated.`);
+    soundRef.current?.blip("hook");
+    setSaveLabel("COOPERATIVE UNSAVED");
+    refresh();
+  }
+
+  function shareCooperationOnX(
+    message = `I joined ${currentCooperative?.name ?? "the RHOOS CITY economy"} and I am looking for players to work, trade assets, and build a cooperative in District One.`,
+  ) {
+    const text = `${message}\n\n#RhoosCity #OnchainGames`;
+    const url = new URL("https://x.com/intent/tweet");
+    url.searchParams.set("text", text);
+    url.searchParams.set(
+      "url",
+      "https://rhoos-city-district-one.meta5555.chatgpt.site",
+    );
+    window.open(url.toString(), "rhoos-x-cooperation", "width=620,height=620");
   }
 
   function purchaseProperty() {
@@ -2883,6 +3103,9 @@ export default function RhoosLiveCity() {
           <button className={panel === "jobs" ? "active" : ""} onClick={() => setPanel(panel === "jobs" ? null : "jobs")}>
             <b>J</b><span>JOBS</span>
           </button>
+          <button className={panel === "exchange" ? "active" : ""} onClick={() => setPanel(panel === "exchange" ? null : "exchange")}>
+            <b>V</b><span>EXCHANGE</span>
+          </button>
           <button className={panel === "cards" ? "active" : ""} onClick={() => setPanel(panel === "cards" ? null : "cards")}>
             <b>C</b><span>CARDS</span>
           </button>
@@ -2903,6 +3126,7 @@ export default function RhoosLiveCity() {
           <span>{engine.vehicle.inCar ? "SHIFT BOOST" : "SHIFT SPRINT"}</span>
           <span>{engine.vehicle.inCar ? "SPACE HANDBRAKE" : "E / GAMEPAD A ACTION"}</span>
           <span>{engine.vehicle.inCar ? "E EXIT WHEN STOPPED" : "ESC RELEASE"}</span>
+          <span>V EXCHANGE</span>
           {engine.vehicle.inCar && <span>R RECOVER CAR</span>}
         </div>
 
@@ -3087,7 +3311,7 @@ export default function RhoosLiveCity() {
               className={`live-panel ${
                 panel === "map"
                   ? "map-panel"
-                  : panel === "player" || panel === "cards"
+                  : panel === "player" || panel === "cards" || panel === "exchange"
                     ? "player-panel"
                     : ""
               }`}
@@ -3106,6 +3330,8 @@ export default function RhoosLiveCity() {
                         ? "CITY JOBS CHANNEL"
                         : panel === "hooks"
                           ? "HOOKTECH MATRIX"
+                          : panel === "exchange"
+                            ? "RHOOS EXCHANGE / COOPERATIVE ECONOMY"
                           : panel === "cards"
                             ? "NFT CHARACTER / WORK TCG"
                           : panel === "player"
@@ -3160,6 +3386,203 @@ export default function RhoosLiveCity() {
                         </button>
                       )}
                     </div>
+                  </div>
+                </div>
+              )}
+
+              {panel === "exchange" && (
+                <div className="exchange-engine">
+                  <section className="exchange-hero">
+                    <div>
+                      <span>CODIFIED ASSET ECONOMY / DEVICE-LOCAL PROTOTYPE LEDGER</span>
+                      <h2>Own functions, not decorations.</h2>
+                      <p>
+                        Every asset has a limited supply, a city function, a live
+                        value, and an ownership record. Work creates cash; cash
+                        acquires productive assets; assets and cooperatives return
+                        value as the city operates.
+                      </p>
+                    </div>
+                    <button onClick={() => shareCooperationOnX()}>
+                      <span>OPEN X COOPERATION POST</span>
+                      <strong>FIND PLAYERS ON X ↗</strong>
+                    </button>
+                  </section>
+
+                  <section className="exchange-ledger">
+                    <div><span>YOUR CASH</span><strong>{formatMoney(engine.cash)}</strong></div>
+                    <div><span>PORTFOLIO</span><strong>{formatMoney(portfolioValue)}</strong></div>
+                    <div><span>ASSETS</span><strong>{ownedEconomyAssets.length}</strong></div>
+                    <div><span>TRADES</span><strong>{engine.assetEconomy.tradesCompleted}</strong></div>
+                    <div><span>COOPERATIVE</span><strong>{currentCooperative?.code ?? "NONE"}</strong></div>
+                    <div><span>SHARED EARNINGS</span><strong>{formatMoney(engine.assetEconomy.cooperativeEarnings)}</strong></div>
+                  </section>
+
+                  <section className="portfolio-section">
+                    <header className="exchange-heading">
+                      <div>
+                        <span>PLAYER PORTFOLIO / LIVE CITY VALUE</span>
+                        <h2>Your functional assets</h2>
+                      </div>
+                      <b>{formatMoney(portfolioValue)} CV</b>
+                    </header>
+                    {ownedEconomyAssets.length ? (
+                      <div className="economy-asset-grid portfolio-grid">
+                        {ownedEconomyAssets.map((asset) => {
+                          const liveValue = assetLiveValue(asset, engine);
+                          return (
+                            <article
+                              key={`owned-${asset.id}`}
+                              className="economy-asset owned"
+                              style={{ "--asset-color": asset.color } as React.CSSProperties}
+                            >
+                              <span>{asset.code} / {asset.category}</span>
+                              <h3>{asset.name}</h3>
+                              <p>{asset.function}</p>
+                              <div>
+                                <b>LIVE {formatMoney(liveValue)}</b>
+                                <b>YIELD +{formatMoney(asset.yieldPerCycle)}</b>
+                              </div>
+                              <button onClick={() => sellEconomyAsset(asset)}>
+                                SELL TO EXCHANGE / {formatMoney(Math.round(liveValue * 0.9))}
+                              </button>
+                              <button
+                                className="share-asset"
+                                onClick={() =>
+                                  shareCooperationOnX(
+                                    `I own ${asset.name} (${asset.code}) in RHOOS CITY. Looking for players to trade, work, and build a cooperative around ${asset.function.toLowerCase()}`,
+                                  )
+                                }
+                              >
+                                DISCUSS ON X ↗
+                              </button>
+                            </article>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="empty-portfolio">
+                        <strong>NO ECONOMY ASSETS YET</strong>
+                        <p>Complete street jobs, earn city cash, and acquire your first functional asset below.</p>
+                      </div>
+                    )}
+                  </section>
+
+                  <section className="market-section">
+                    <header className="exchange-heading">
+                      <div>
+                        <span>PLAYER-TO-PLAYER MARKET SIMULATION</span>
+                        <h2>District listings</h2>
+                      </div>
+                      <b>{engine.assetEconomy.listings.filter((listing) => listing.available).length} OPEN</b>
+                    </header>
+                    <div className="economy-asset-grid">
+                      {ECONOMY_ASSETS.map((asset) => {
+                        const listing = engine.assetEconomy.listings.find(
+                          (candidate) => candidate.assetId === asset.id,
+                        );
+                        const owned = engine.assetEconomy.ownedAssetIds.includes(asset.id);
+                        const liveValue = assetLiveValue(asset, engine);
+                        const price = listing
+                          ? Math.round((listing.ask + liveValue) / 2)
+                          : liveValue;
+                        return (
+                          <article
+                            key={asset.id}
+                            className={`economy-asset ${owned ? "owned" : ""} ${listing?.available ? "" : "settled"}`}
+                            style={{ "--asset-color": asset.color } as React.CSSProperties}
+                          >
+                            <span>{asset.code} / {asset.rarity} / SUPPLY {asset.supply}</span>
+                            <h3>{asset.name}</h3>
+                            <p>{asset.description}</p>
+                            <small>{asset.function}</small>
+                            <div>
+                              <b>ASK {formatMoney(price)}</b>
+                              <b>LIVE {formatMoney(liveValue)}</b>
+                            </div>
+                            <em>{listing?.seller ?? "CITY"} / {listing?.serial ?? asset.code}</em>
+                            <button
+                              disabled={!listing?.available || owned || engine.cash < price}
+                              onClick={() => buyEconomyAsset(asset)}
+                            >
+                              {owned
+                                ? "OWNED"
+                                : !listing?.available
+                                  ? "SETTLED"
+                                  : engine.cash < price
+                                    ? `${formatMoney(price - engine.cash)} MORE NEEDED`
+                                    : `ACQUIRE / ${formatMoney(price)}`}
+                            </button>
+                          </article>
+                        );
+                      })}
+                    </div>
+                  </section>
+
+                  <section className="cooperative-section">
+                    <header className="exchange-heading">
+                      <div>
+                        <span>COOPERATIVE NETWORK / SHARED FUNCTIONS</span>
+                        <h2>Build with other players</h2>
+                      </div>
+                      <b>{formatMoney(engine.assetEconomy.cooperativeContribution)} CONTRIBUTED</b>
+                    </header>
+                    <div className="cooperative-grid">
+                      {COOPERATIVES.map((cooperative) => {
+                        const active = cooperative.id === currentCooperative?.id;
+                        return (
+                          <article
+                            key={cooperative.id}
+                            className={active ? "active" : ""}
+                            style={{ "--coop-color": cooperative.color } as React.CSSProperties}
+                          >
+                            <span>{cooperative.code} / {cooperative.district}</span>
+                            <h3>{cooperative.name}</h3>
+                            <b>{cooperative.focus}</b>
+                            <p>{cooperative.description}</p>
+                            <div>
+                              <small>{cooperative.members + (active ? 1 : 0)} MEMBERS</small>
+                              <small>{formatMoney(cooperative.treasury + (active ? engine.assetEconomy.cooperativeContribution : 0))} TREASURY</small>
+                            </div>
+                            <button onClick={() => joinCooperative(cooperative)}>
+                              {active ? "ACTIVE COOPERATIVE" : "JOIN COOPERATIVE"}
+                            </button>
+                            <button
+                              className="share-coop"
+                              onClick={() =>
+                                shareCooperationOnX(
+                                  `I am ${active ? "building with" : "looking at"} ${cooperative.name} (${cooperative.code}) in RHOOS CITY. We need players for ${cooperative.focus.toLowerCase()}.`,
+                                )
+                              }
+                            >
+                              COORDINATE ON X ↗
+                            </button>
+                          </article>
+                        );
+                      })}
+                    </div>
+                  </section>
+
+                  <section className="trade-ledger">
+                    <div>
+                      <span>RECENT OWNERSHIP EVENTS</span>
+                      <h2>Player ledger</h2>
+                    </div>
+                    <ol>
+                      {(engine.assetEconomy.tradeHistory.length
+                        ? engine.assetEconomy.tradeHistory
+                        : ["NO PLAYER TRADES SETTLED YET"]).map((entry, index) => (
+                        <li key={`${entry}-${index}`}>{entry}</li>
+                      ))}
+                    </ol>
+                  </section>
+
+                  <div className="exchange-safety">
+                    PROTOTYPE ASSETS, TRADES, YIELDS, AND CITY VALUE ARE
+                    DEVICE-LOCAL GAME STATE WITH NO CASH VALUE. REAL PLAYER
+                    TRADING REQUIRES AUDITED ESCROW CONTRACTS, WALLET SIGNATURES,
+                    IDENTITY, AND AN ON-CHAIN MARKETPLACE. X WEB INTENTS OPEN A
+                    PLAYER-CONTROLLED POST; THE GAME CANNOT POST AUTOMATICALLY.
                   </div>
                 </div>
               )}

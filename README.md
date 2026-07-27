@@ -1,13 +1,19 @@
-# RHOOS CITY — NFT Work TCG
+# RHOOS CITY — Living Economy RPG
 
 RHOOS CITY is a playable driving, third-person living-city trading card game.
 Explore a neon New York-inspired district on foot or in four enterable city
 cars, talk to scheduled residents, navigate with a permanent minimap, use a
 free origin character or verify an ERC-721 character NFT, build a
 work deck, win corporate job encounters, rise from intern to District Boss,
-own businesses, and automate the economy with HookTech.
+own businesses, trade functional assets, join cooperatives, and automate the
+economy with HookTech.
 
-Version 0.9 adds a second, street-level gameplay layer with four selectable
+Version 0.10 adds the RHOOS Exchange: twelve codified assets with limited
+supply and real city functions, demand-driven live values, a persistent
+portfolio, buy/sell trades, simulated operating yields, three player
+cooperatives with shared earnings, and player-controlled X cooperation links.
+
+Version 0.9 added a second, street-level gameplay layer with four selectable
 spawn neighborhoods, walk-up job contacts, destination beacons, repeatable
 courier, mechanic, market, and station work, direct wage payouts, named street
 signs, brighter business signs, and a live traffic-signal network.
@@ -42,6 +48,7 @@ Open the local address printed by the development server.
 - `J`: city jobs channel
 - `P`: character and career engine
 - `H`: HookTech matrix
+- `V`: RHOOS Exchange, portfolio, and cooperatives
 - `M`: district map
 - `Space`: pause
 - `Esc`: release mouse or close a panel
@@ -66,6 +73,19 @@ Open the local address printed by the development server.
 - Five-rank company ladder: City Intern, Associate, Manager, Director, and
   District Boss
 - Company-HQ job alignment, promotions, and in-game wage bonuses
+
+## Living economy systems
+
+- Twelve codified assets across vehicles, businesses, property, contracts,
+  utilities, tools, and v4 Hook modules
+- Limited supply, unique serials, city functions, market asks, and
+  demand-responsive live values
+- Persistent player portfolio with acquisition and sale history
+- Simulated operating yields paid every thirty city minutes
+- Three cooperatives for delivery, industry, and property/finance players
+- Cooperative treasury contributions and shared member earnings
+- Player-controlled X Web Intents for discussing assets and coordinating work
+- Clear prototype boundary: all current value is device-local game state
 
 ## Driving systems
 
@@ -127,6 +147,7 @@ Jones Indices. It contains no live stock prices or investment products.
   jobs, property, and HookTech runtime
 - `app/tcg-data.ts`: card definitions and starter collection
 - `app/corporate-data.ts`: prototype corporate workplaces and role ladder
+- `app/economy-data.ts`: codified functional assets and cooperative definitions
 - `app/nft-wallet.ts`: read-only EIP-1193/ERC-721 ownership verification
 - `app/rhoos-three-engine.ts`: Three.js living-city renderer
 - `app/rhoos-sound-engine.ts`: procedural soundtrack and game sounds

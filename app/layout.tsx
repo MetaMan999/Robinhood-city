@@ -3,27 +3,27 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://rhoos-city-district-one.meta5555.chatgpt.site"),
-  title: "RHOOS CITY — Third-Person Work RPG",
+  title: "RHOOS CITY — Living Economy RPG",
   description:
-    "Choose a neighborhood spawn, walk a living city, find street jobs, repair cars, earn wages, drive multiple vehicles, and build a v4 Hook player identity.",
+    "Work, drive, own functional city assets, trade a live portfolio, join cooperatives, and build a persistent economic life in RHOOS CITY.",
   openGraph: {
-    title: "RHOOS CITY — Spawn. Walk. Work. Drive.",
+    title: "RHOOS CITY — Own. Trade. Cooperate. Build.",
     description:
-      "A street-level living-city RPG with neighborhood spawns, walk-up jobs, mechanic work, traffic networks, v4 Hook player cards, and driveable cars.",
+      "A living-city RPG with codified functional assets, a player marketplace, cooperative earnings, jobs, businesses, property, traffic, and driveable cars.",
     images: [
       {
         url: "/og.png",
         width: 1536,
         height: 1024,
-        alt: "RHOOS CITY third-person character, city cars, conversations, and minimap",
+        alt: "RHOOS CITY player, functional asset cards, cooperative market, businesses, and cars",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "RHOOS CITY — Spawn. Walk. Work. Drive.",
+    title: "RHOOS CITY — Own. Trade. Cooperate. Build.",
     description:
-      "Drive the city, build a live work deck, rise from intern to boss, and build an economic life.",
+      "Work, drive, own functional city assets, trade a live portfolio, and build value with other players.",
     images: ["/og.png"],
   },
   icons: {
