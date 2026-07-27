@@ -52,6 +52,25 @@ import {
   type Cooperative,
   type EconomyAsset,
 } from "./economy-data";
+import {
+  CLOCK_IN_COOLDOWN_MINUTES,
+  CLOCK_IN_WINDOW_MINUTES,
+  VALUE_READINESS,
+  makeVaultSerial,
+  productivePower,
+  quoteTrade,
+  valueBridgeScore,
+  type TradeQuote,
+  type ValueBridgeState,
+} from "./value-economy";
+import {
+  CIVIC_POLICIES,
+  MAYOR_REQUIREMENTS,
+  civicTitle,
+  mayorReadiness,
+  type CivicPolicyId,
+  type CivicState,
+} from "./city-governance";
 
 const VIEW_W = 1280;
 const VIEW_H = 720;
@@ -223,6 +242,8 @@ type AssetEconomyState = {
   cooperativeContribution: number;
   cooperativeEarnings: number;
   nextYieldMinute: number;
+  valueBridge: ValueBridgeState;
+  civic: CivicState;
 };
 
 const HOOK_PASSES = [
@@ -472,6 +493,22 @@ function initialMarketListings(): MarketListing[] {
   }));
 }
 
+function routeTradeFee(
+  engine: Engine,
+  quote: TradeQuote,
+  label: string,
+) {
+  const bridge = engine.assetEconomy.valueBridge;
+  bridge.marketFeesGenerated += quote.fee;
+  bridge.simulatedReserve += quote.reserve;
+  bridge.cooperativePool += quote.cooperative;
+  bridge.cityOperationsPool += quote.cityOperations;
+  bridge.settlementLog = [
+    `${label} / FEE ${formatMoney(quote.fee)} → RESERVE ${formatMoney(quote.reserve)} / COOP ${formatMoney(quote.cooperative)} / CITY ${formatMoney(quote.cityOperations)}`,
+    ...bridge.settlementLog,
+  ].slice(0, 10);
+}
+
 type Engine = {
   player: {
     x: number;
@@ -602,6 +639,29 @@ function initialEngine(): Engine {
       cooperativeContribution: 0,
       cooperativeEarnings: 0,
       nextYieldMinute: 420,
+      valueBridge: {
+        vaultSerial: makeVaultSerial(48103),
+        clockIns: 0,
+        clockInStreak: 0,
+        nextClockInMinute: 0,
+        clockedInUntilMinute: 0,
+        workUnits: 0,
+        outputUnits: 0,
+        marketFeesGenerated: 0,
+        simulatedReserve: 0,
+        cooperativePool: 0,
+        cityOperationsPool: 0,
+        distributionsReceived: 0,
+        settlementLog: [],
+      },
+      civic: {
+        isMayor: false,
+        campaigns: 0,
+        electionWins: 0,
+        approval: 50,
+        activePolicyId: null,
+        termStartedDay: null,
+      },
     },
     tcg: {
       credits: 0,
@@ -694,11 +754,22 @@ function assetLiveValue(asset: EconomyAsset, engine: Engine) {
         : asset.category === "CONTRACT"
           ? 0.88 + engine.employment / 420
           : 0.9 + engine.installedHooks.length / 35;
+  const policyMultiplier =
+    engine.assetEconomy.civic.isMayor &&
+    ((asset.category === "VEHICLE" &&
+      engine.assetEconomy.civic.activePolicyId === "transit-flow") ||
+      ((asset.category === "BUSINESS" || asset.category === "PROPERTY") &&
+        engine.assetEconomy.civic.activePolicyId === "local-enterprise"))
+      ? 1.08
+      : 1;
   const progression =
     1 +
     Math.min(0.18, engine.reputation * 0.004) +
     Math.min(0.12, engine.jobsCompleted * 0.003);
-  return Math.round(asset.baseValue * clamp(activity * progression, 0.78, 1.42));
+  return Math.round(
+    asset.baseValue *
+      clamp(activity * progression * policyMultiplier, 0.78, 1.48),
+  );
 }
 
 function assetPortfolioValue(engine: Engine) {
@@ -1516,7 +1587,11 @@ function runEconomy(engine: Engine) {
     34 +
       Math.sin(engine.elapsed / 15) * 13 +
       (hour >= 7 && hour <= 9 ? 22 : 0) +
-      (hour >= 16 && hour <= 18 ? 19 : 0),
+      (hour >= 16 && hour <= 18 ? 19 : 0) -
+      (engine.assetEconomy.civic.isMayor &&
+      engine.assetEconomy.civic.activePolicyId === "transit-flow"
+        ? 10
+        : 0),
     12,
     96,
   );
@@ -1549,6 +1624,13 @@ function runEconomy(engine: Engine) {
   market.inventory -= sales;
   market.cash += sales * 39;
   cafe.cash += Math.round(cafe.demand * 1.6);
+  if (
+    engine.assetEconomy.civic.isMayor &&
+    engine.assetEconomy.civic.activePolicyId === "local-enterprise"
+  ) {
+    market.demand = clamp(market.demand + 2, 28, 100);
+    cafe.demand = clamp(cafe.demand + 2, 28, 100);
+  }
 
   const supplyHook = HOOK_MODULES.find((hook) => hook.id === "supply-router")!;
   if (hookActive(engine, "supply-router") && steel.inventory < 18 && warehouse.inventory > 10) {
@@ -1626,9 +1708,33 @@ function runEconomy(engine: Engine) {
       engine.cash += payout;
       engine.assetEconomy.cooperativeContribution += contribution;
       engine.assetEconomy.cooperativeEarnings += cooperativeBase;
+      const reserveDistribution = Math.min(
+        engine.assetEconomy.valueBridge.simulatedReserve,
+        Math.max(
+          0,
+          Math.round(
+            productivePower({
+              workUnits: engine.assetEconomy.valueBridge.workUnits,
+              outputUnits: engine.assetEconomy.valueBridge.outputUnits,
+              assets: engine.assetEconomy.ownedAssetIds.length,
+              reputation: engine.reputation,
+              clockInStreak: engine.assetEconomy.valueBridge.clockInStreak,
+            }) / 180,
+          ),
+        ),
+      );
+      if (reserveDistribution > 0) {
+        engine.assetEconomy.valueBridge.simulatedReserve -= reserveDistribution;
+        engine.assetEconomy.valueBridge.distributionsReceived += reserveDistribution;
+        engine.cash += reserveDistribution;
+        engine.assetEconomy.valueBridge.settlementLog = [
+          `SIMULATED RESERVE DISTRIBUTION / ${formatMoney(reserveDistribution)} / PRODUCTIVE ACTIVITY`,
+          ...engine.assetEconomy.valueBridge.settlementLog,
+        ].slice(0, 10);
+      }
       addEvent(
         engine,
-        `${cooperative?.code ?? "PORTFOLIO"} cycle settled ${formatMoney(payout)} / ${formatMoney(contribution)} shared.`,
+        `${cooperative?.code ?? "PORTFOLIO"} cycle settled ${formatMoney(payout + reserveDistribution)} / ${formatMoney(contribution)} shared.`,
       );
     }
     engine.assetEconomy.nextYieldMinute = absoluteMinutes + 30;
@@ -1726,6 +1832,17 @@ export default function RhoosLiveCity() {
                 : base.assetEconomy.listings,
             tradeHistory:
               saved.assetEconomy?.tradeHistory ?? base.assetEconomy.tradeHistory,
+            valueBridge: {
+              ...base.assetEconomy.valueBridge,
+              ...saved.assetEconomy?.valueBridge,
+              settlementLog:
+                saved.assetEconomy?.valueBridge?.settlementLog ??
+                base.assetEconomy.valueBridge.settlementLog,
+            },
+            civic: {
+              ...base.assetEconomy.civic,
+              ...saved.assetEconomy?.civic,
+            },
           },
           businesses: { ...base.businesses, ...saved.businesses },
           installedHooks: saved.installedHooks ?? base.installedHooks,
@@ -1813,19 +1930,32 @@ export default function RhoosLiveCity() {
       streetInteraction.distance < 105
     ) {
       const { gig } = streetInteraction;
-      engine.cash += gig.pay;
+      const absoluteMinutes = engine.day * 1440 + engine.simMinutes;
+      const clockInBonus =
+        absoluteMinutes <= engine.assetEconomy.valueBridge.clockedInUntilMinute
+          ? Math.round(gig.pay * 0.1)
+          : 0;
+      const mayorPolicyBonus =
+        engine.assetEconomy.civic.isMayor &&
+        engine.assetEconomy.civic.activePolicyId === "jobs-first"
+          ? Math.round(gig.pay * 0.08)
+          : 0;
+      const streetPay = gig.pay + clockInBonus + mayorPolicyBonus;
+      engine.cash += streetPay;
       engine.reputation += gig.reputation;
-      engine.profile.totalEarned += gig.pay;
+      engine.profile.totalEarned += streetPay;
       engine.profile.careerXp += 18 + gig.reputation * 4;
       engine.streetLayer.gigsCompleted += 1;
-      engine.streetLayer.earnings += gig.pay;
+      engine.streetLayer.earnings += streetPay;
       engine.streetLayer.activeGigId = null;
+      engine.assetEconomy.valueBridge.workUnits += 12 + gig.reputation * 2;
+      engine.assetEconomy.valueBridge.outputUnits += 8 + gig.reputation;
       if (gig.category === "MECHANIC") {
         engine.vehicle.condition = clamp(engine.vehicle.condition + 28, 0, 100);
       }
       addEvent(
         engine,
-        `${gig.title} complete. ${formatMoney(gig.pay)} paid at street level.`,
+        `${gig.title} complete. ${formatMoney(streetPay)} paid${clockInBonus ? ` / ${formatMoney(clockInBonus)} clock-in bonus` : ""}${mayorPolicyBonus ? ` / ${formatMoney(mayorPolicyBonus)} city policy` : ""}.`,
       );
       soundRef.current?.blip("reward");
       refresh();
@@ -2046,7 +2176,23 @@ export default function RhoosLiveCity() {
     const corporateBonus = companyAligned
       ? Math.round(job.pay * roleBefore.payBonus)
       : 0;
-    const totalPay = job.pay + hookBonus + careerBonus + corporateBonus;
+    const absoluteMinutes = engine.day * 1440 + engine.simMinutes;
+    const clockInBonus =
+      absoluteMinutes <= engine.assetEconomy.valueBridge.clockedInUntilMinute
+        ? Math.round(job.pay * 0.1)
+        : 0;
+    const mayorPolicyBonus =
+      engine.assetEconomy.civic.isMayor &&
+      engine.assetEconomy.civic.activePolicyId === "jobs-first"
+        ? Math.round(job.pay * 0.08)
+        : 0;
+    const totalPay =
+      job.pay +
+      hookBonus +
+      careerBonus +
+      corporateBonus +
+      clockInBonus +
+      mayorPolicyBonus;
     engine.cash += totalPay;
     engine.reputation += job.reputation;
     engine.profile.careerXp += aligned ? 34 : 18;
@@ -2062,6 +2208,8 @@ export default function RhoosLiveCity() {
     }
     engine.energy = clamp(engine.energy - 13, 0, 100);
     engine.jobsCompleted += 1;
+    engine.assetEconomy.valueBridge.workUnits += 18 + job.reputation * 3;
+    engine.assetEconomy.valueBridge.outputUnits += 16 + Math.round(job.pay / 18);
     engine.businesses[job.buildingId].cash -= job.pay;
     engine.businesses[job.buildingId].output = clamp(
       engine.businesses[job.buildingId].output + 6,
@@ -2080,6 +2228,12 @@ export default function RhoosLiveCity() {
     }
     if (corporateBonus) {
       addEvent(engine, `${roleBefore.title} bonus +${formatMoney(corporateBonus)}.`);
+    }
+    if (clockInBonus) {
+      addEvent(engine, `Broker vault clock-in bonus +${formatMoney(clockInBonus)}.`);
+    }
+    if (mayorPolicyBonus) {
+      addEvent(engine, `Jobs First city policy +${formatMoney(mayorPolicyBonus)}.`);
     }
     engine.activeJob = null;
     soundRef.current?.blip("reward");
@@ -2351,6 +2505,34 @@ export default function RhoosLiveCity() {
   const ownedEconomyAssets = ECONOMY_ASSETS.filter((asset) =>
     engine.assetEconomy.ownedAssetIds.includes(asset.id),
   );
+  const valueBridge = engine.assetEconomy.valueBridge;
+  const absoluteCityMinutes = engine.day * 1440 + engine.simMinutes;
+  const clockedIn =
+    absoluteCityMinutes <= valueBridge.clockedInUntilMinute &&
+    valueBridge.clockIns > 0;
+  const clockInReady = absoluteCityMinutes >= valueBridge.nextClockInMinute;
+  const clockInWait = Math.max(
+    0,
+    valueBridge.nextClockInMinute - absoluteCityMinutes,
+  );
+  const brokerPower = productivePower({
+    workUnits: valueBridge.workUnits,
+    outputUnits: valueBridge.outputUnits,
+    assets: ownedEconomyAssets.length,
+    reputation: engine.reputation,
+    clockInStreak: valueBridge.clockInStreak,
+  });
+  const bridgeReadiness = valueBridgeScore(valueBridge);
+  const civicReadiness = mayorReadiness({
+    reputation: engine.reputation,
+    jobsCompleted: engine.jobsCompleted + engine.streetLayer.gigsCompleted,
+    assetsOwned: ownedEconomyAssets.length,
+    clockIns: valueBridge.clockIns,
+  });
+  const currentCivicTitle = civicTitle(
+    engine.reputation,
+    engine.assetEconomy.civic.isMayor,
+  );
   const installedCount = engine.installedHooks.length;
   const activeHookCount = engine.installedHooks.filter(
     (id) => !engine.disabledHooks.includes(id),
@@ -2482,21 +2664,23 @@ export default function RhoosLiveCity() {
     );
     if (!listing || engine.assetEconomy.ownedAssetIds.includes(asset.id)) return;
     const price = Math.round((listing.ask + assetLiveValue(asset, engine)) / 2);
-    if (engine.cash < price) {
-      addEvent(engine, `${formatMoney(price - engine.cash)} more required for ${asset.name}.`);
+    const quote = quoteTrade(price);
+    if (engine.cash < quote.total) {
+      addEvent(engine, `${formatMoney(quote.total - engine.cash)} more required for ${asset.name}.`);
       soundRef.current?.blip("error");
       refresh();
       return;
     }
-    engine.cash -= price;
+    engine.cash -= quote.total;
     engine.assetEconomy.ownedAssetIds.push(asset.id);
     engine.assetEconomy.tradesCompleted += 1;
     listing.available = false;
+    routeTradeFee(engine, quote, `BUY ${listing.serial}`);
     engine.assetEconomy.tradeHistory = [
-      `BOUGHT ${listing.serial} FROM ${listing.seller} / ${formatMoney(price)}`,
+      `BOUGHT ${listing.serial} FROM ${listing.seller} / ${formatMoney(price)} + ${formatMoney(quote.fee)} FEE`,
       ...engine.assetEconomy.tradeHistory,
     ].slice(0, 8);
-    addEvent(engine, `${asset.name} ownership settled for ${formatMoney(price)}.`);
+    addEvent(engine, `${asset.name} settled for ${formatMoney(quote.total)} including reserve fee.`);
     soundRef.current?.blip("reward");
     setSaveLabel("ASSET TRADE UNSAVED");
     refresh();
@@ -2506,10 +2690,13 @@ export default function RhoosLiveCity() {
     if (!engine.assetEconomy.ownedAssetIds.includes(asset.id)) return;
     const liveValue = assetLiveValue(asset, engine);
     const settlement = Math.round(liveValue * 0.9);
+    const quote = quoteTrade(settlement);
+    const netSettlement = Math.max(0, settlement - quote.fee);
     engine.assetEconomy.ownedAssetIds =
       engine.assetEconomy.ownedAssetIds.filter((id) => id !== asset.id);
-    engine.cash += settlement;
+    engine.cash += netSettlement;
     engine.assetEconomy.tradesCompleted += 1;
+    routeTradeFee(engine, quote, `SELL ${asset.code}`);
     const listing = engine.assetEconomy.listings.find(
       (candidate) => candidate.assetId === asset.id,
     );
@@ -2519,10 +2706,10 @@ export default function RhoosLiveCity() {
       listing.ask = Math.round(liveValue * 1.04);
     }
     engine.assetEconomy.tradeHistory = [
-      `SOLD ${listing?.serial ?? asset.code} TO CITY EXCHANGE / ${formatMoney(settlement)}`,
+      `SOLD ${listing?.serial ?? asset.code} TO CITY EXCHANGE / ${formatMoney(netSettlement)} NET`,
       ...engine.assetEconomy.tradeHistory,
     ].slice(0, 8);
-    addEvent(engine, `${asset.name} sold for ${formatMoney(settlement)}.`);
+    addEvent(engine, `${asset.name} sold for ${formatMoney(netSettlement)} after ${formatMoney(quote.fee)} reserve fee.`);
     soundRef.current?.blip("reward");
     setSaveLabel("ASSET TRADE UNSAVED");
     refresh();
@@ -2541,6 +2728,99 @@ export default function RhoosLiveCity() {
     addEvent(engine, `${cooperative.name} cooperative membership activated.`);
     soundRef.current?.blip("hook");
     setSaveLabel("COOPERATIVE UNSAVED");
+    refresh();
+  }
+
+  function clockInBroker() {
+    const bridge = engine.assetEconomy.valueBridge;
+    const absoluteMinutes = engine.day * 1440 + engine.simMinutes;
+    if (absoluteMinutes < bridge.nextClockInMinute) {
+      const remaining = Math.max(1, bridge.nextClockInMinute - absoluteMinutes);
+      addEvent(engine, `Broker vault clock-in opens in ${remaining} city minutes.`);
+      soundRef.current?.blip("error");
+      refresh();
+      return;
+    }
+    bridge.clockIns += 1;
+    bridge.clockInStreak += 1;
+    bridge.nextClockInMinute = absoluteMinutes + CLOCK_IN_COOLDOWN_MINUTES;
+    bridge.clockedInUntilMinute = absoluteMinutes + CLOCK_IN_WINDOW_MINUTES;
+    bridge.workUnits += 5;
+    bridge.settlementLog = [
+      `CLOCK IN #${bridge.clockIns} / WORK BOOST ACTIVE ${CLOCK_IN_WINDOW_MINUTES} CITY MIN`,
+      ...bridge.settlementLog,
+    ].slice(0, 10);
+    addEvent(
+      engine,
+      `${bridge.vaultSerial} clocked in. Useful work pays a 10% bonus for ${CLOCK_IN_WINDOW_MINUTES} city minutes.`,
+    );
+    soundRef.current?.blip("reward");
+    setSaveLabel("CLOCK IN UNSAVED");
+    refresh();
+  }
+
+  function runForMayor() {
+    const civic = engine.assetEconomy.civic;
+    const readiness = mayorReadiness({
+      reputation: engine.reputation,
+      jobsCompleted: engine.jobsCompleted + engine.streetLayer.gigsCompleted,
+      assetsOwned: engine.assetEconomy.ownedAssetIds.length,
+      clockIns: engine.assetEconomy.valueBridge.clockIns,
+    });
+    if (civic.isMayor) {
+      addEvent(engine, `Mayor ${engine.profile.name} is already serving District One.`);
+      soundRef.current?.blip("interact");
+      refresh();
+      return;
+    }
+    if (!readiness.eligible) {
+      addEvent(
+        engine,
+        `Mayoral ballot locked: ${readiness.completed}/${readiness.total} civic requirements complete.`,
+      );
+      soundRef.current?.blip("error");
+      refresh();
+      return;
+    }
+    civic.campaigns += 1;
+    civic.isMayor = true;
+    civic.electionWins += 1;
+    civic.termStartedDay = engine.day;
+    civic.approval = clamp(52 + Math.round(readiness.score / 8), 52, 88);
+    addEvent(
+      engine,
+      `${engine.profile.name} elected Mayor of District One with ${civic.approval}% approval.`,
+    );
+    soundRef.current?.blip("reward");
+    setSaveLabel("MAYORAL TERM UNSAVED");
+    refresh();
+  }
+
+  function enactCivicPolicy(policyId: CivicPolicyId) {
+    const civic = engine.assetEconomy.civic;
+    const policy = CIVIC_POLICIES.find((candidate) => candidate.id === policyId);
+    if (!civic.isMayor || !policy) return;
+    if (civic.activePolicyId === policy.id) {
+      addEvent(engine, `${policy.name} is already active.`);
+      soundRef.current?.blip("interact");
+      refresh();
+      return;
+    }
+    if (engine.assetEconomy.valueBridge.cityOperationsPool < policy.cost) {
+      addEvent(
+        engine,
+        `${formatMoney(policy.cost - engine.assetEconomy.valueBridge.cityOperationsPool)} more city-operation fees required for ${policy.name}.`,
+      );
+      soundRef.current?.blip("error");
+      refresh();
+      return;
+    }
+    engine.assetEconomy.valueBridge.cityOperationsPool -= policy.cost;
+    civic.activePolicyId = policy.id;
+    civic.approval = clamp(civic.approval + 2, 0, 100);
+    addEvent(engine, `Mayor enacted ${policy.name}: ${policy.effect}`);
+    soundRef.current?.blip("hook");
+    setSaveLabel("CITY POLICY UNSAVED");
     refresh();
   }
 
@@ -3331,7 +3611,7 @@ export default function RhoosLiveCity() {
                         : panel === "hooks"
                           ? "HOOKTECH MATRIX"
                           : panel === "exchange"
-                            ? "RHOOS EXCHANGE / COOPERATIVE ECONOMY"
+                            ? "RHOOS BROKER TERMINAL / CITY GOVERNANCE"
                           : panel === "cards"
                             ? "NFT CHARACTER / WORK TCG"
                           : panel === "player"
@@ -3394,28 +3674,182 @@ export default function RhoosLiveCity() {
                 <div className="exchange-engine">
                   <section className="exchange-hero">
                     <div>
-                      <span>CODIFIED ASSET ECONOMY / DEVICE-LOCAL PROTOTYPE LEDGER</span>
-                      <h2>Own functions, not decorations.</h2>
+                      <span>BROKER VAULT / PRODUCTIVE CITY ECONOMY</span>
+                      <h2>Clock in. Work. Own. Build the city.</h2>
                       <p>
-                        Every asset has a limited supply, a city function, a live
-                        value, and an ownership record. Work creates cash; cash
-                        acquires productive assets; assets and cooperatives return
-                        value as the city operates.
+                        Useful work creates output. Output supports businesses.
+                        Asset trades generate visible fees. Fees route into
+                        cooperative, city, and simulated reserve ledgers—creating a
+                        transparent path toward externally funded value.
                       </p>
                     </div>
-                    <button onClick={() => shareCooperationOnX()}>
-                      <span>OPEN X COOPERATION POST</span>
-                      <strong>FIND PLAYERS ON X ↗</strong>
+                    <button
+                      className={clockedIn ? "clocked-in" : ""}
+                      disabled={!clockInReady}
+                      onClick={clockInBroker}
+                    >
+                      <span>{clockedIn ? "BROKER SHIFT ACTIVE" : "COMMUNITY PARTICIPATION ROUND"}</span>
+                      <strong>
+                        {clockedIn
+                          ? "CLOCKED IN / +10% WORK"
+                          : clockInReady
+                            ? "CLOCK IN"
+                            : `NEXT ROUND ${clockInWait} CITY MIN`}
+                      </strong>
                     </button>
                   </section>
 
                   <section className="exchange-ledger">
                     <div><span>YOUR CASH</span><strong>{formatMoney(engine.cash)}</strong></div>
                     <div><span>PORTFOLIO</span><strong>{formatMoney(portfolioValue)}</strong></div>
-                    <div><span>ASSETS</span><strong>{ownedEconomyAssets.length}</strong></div>
-                    <div><span>TRADES</span><strong>{engine.assetEconomy.tradesCompleted}</strong></div>
-                    <div><span>COOPERATIVE</span><strong>{currentCooperative?.code ?? "NONE"}</strong></div>
-                    <div><span>SHARED EARNINGS</span><strong>{formatMoney(engine.assetEconomy.cooperativeEarnings)}</strong></div>
+                    <div><span>WORK UNITS</span><strong>{valueBridge.workUnits}</strong></div>
+                    <div><span>BROKER POWER</span><strong>{brokerPower}</strong></div>
+                    <div><span>CIVIC RANK</span><strong>{currentCivicTitle}</strong></div>
+                    <div><span>VALUE READINESS</span><strong>{bridgeReadiness}%</strong></div>
+                  </section>
+
+                  <section className="broker-terminal">
+                    <article className="broker-vault">
+                      <span>PLAYER-BOUND ECONOMIC IDENTITY</span>
+                      <h2>{valueBridge.vaultSerial}</h2>
+                      <b>{engine.profile.name} / {currentCivicTitle}</b>
+                      <p>
+                        This local prototype vault records work, assets, fees,
+                        cooperative participation, and distributions under one
+                        player identity.
+                      </p>
+                      <div>
+                        <small>{valueBridge.clockIns} CLOCK-INS</small>
+                        <small>{valueBridge.clockInStreak} SHIFT STREAK</small>
+                        <small>{ownedEconomyAssets.length} ASSETS</small>
+                      </div>
+                      <button onClick={() => shareCooperationOnX()}>
+                        FIND CO-WORKERS ON X ↗
+                      </button>
+                    </article>
+
+                    <article className="value-flow">
+                      <span>VALUE BRIDGE / SOURCE OF FUNDS</span>
+                      <h2>No magic emissions.</h2>
+                      <div className="value-flow-track">
+                        <div><b>01</b><strong>WORK</strong><small>{valueBridge.workUnits} verified units</small></div>
+                        <i>→</i>
+                        <div><b>02</b><strong>OUTPUT</strong><small>{valueBridge.outputUnits} productive units</small></div>
+                        <i>→</i>
+                        <div><b>03</b><strong>FEES</strong><small>{formatMoney(valueBridge.marketFeesGenerated)} generated</small></div>
+                        <i>→</i>
+                        <div><b>04</b><strong>RESERVE</strong><small>{formatMoney(valueBridge.simulatedReserve)} simulated</small></div>
+                        <i>→</i>
+                        <div><b>05</b><strong>DISTRIBUTE</strong><small>{formatMoney(valueBridge.distributionsReceived)} received</small></div>
+                      </div>
+                      <p>
+                        The current reserve is simulated city accounting. It
+                        becomes redeemable only when independently verifiable
+                        external funds are deposited into audited settlement
+                        contracts.
+                      </p>
+                    </article>
+                  </section>
+
+                  <section className="value-readiness">
+                    <header className="exchange-heading">
+                      <div>
+                        <span>REAL-WORLD VALUE BRIDGE / SAFETY GATES</span>
+                        <h2>Redemption readiness</h2>
+                      </div>
+                      <b>{bridgeReadiness}% PROTOTYPE READY</b>
+                    </header>
+                    <div className="readiness-grid">
+                      {VALUE_READINESS.map((stage) => (
+                        <article key={stage.id} className={stage.status.toLowerCase()}>
+                          <span>{stage.status}</span>
+                          <strong>{stage.label}</strong>
+                          <p>{stage.detail}</p>
+                        </article>
+                      ))}
+                    </div>
+                    <div className="redemption-console">
+                      <div>
+                        <span>EXTERNALLY FUNDED RESERVE</span>
+                        <strong>$0.00 / NOT CONNECTED</strong>
+                      </div>
+                      <div>
+                        <span>CURRENT REDEMPTION VALUE</span>
+                        <strong>$0.00</strong>
+                      </div>
+                      <button disabled>WITHDRAWALS LOCKED / 3 GATES REQUIRED</button>
+                    </div>
+                  </section>
+
+                  <section className="civic-hall">
+                    <header className="exchange-heading">
+                      <div>
+                        <span>CITY GOVERNANCE / REPUTATION PROGRESSION</span>
+                        <h2>{engine.assetEconomy.civic.isMayor ? `Mayor ${engine.profile.name}` : "Earn the right to lead."}</h2>
+                      </div>
+                      <b>{engine.assetEconomy.civic.approval}% APPROVAL</b>
+                    </header>
+                    <div className="civic-grid">
+                      <article className="mayor-card">
+                        <span>{currentCivicTitle} / DISTRICT ONE</span>
+                        <strong>{engine.reputation} REPUTATION</strong>
+                        <p>
+                          Build a civic record through work, ownership, and
+                          participation. Eligible players can run for mayor and
+                          enact policies that change the city economy.
+                        </p>
+                        <div className="mayor-requirements">
+                          <small className={engine.reputation >= MAYOR_REQUIREMENTS.reputation ? "met" : ""}>
+                            REP {engine.reputation}/{MAYOR_REQUIREMENTS.reputation}
+                          </small>
+                          <small className={engine.jobsCompleted + engine.streetLayer.gigsCompleted >= MAYOR_REQUIREMENTS.jobsCompleted ? "met" : ""}>
+                            WORK {engine.jobsCompleted + engine.streetLayer.gigsCompleted}/{MAYOR_REQUIREMENTS.jobsCompleted}
+                          </small>
+                          <small className={ownedEconomyAssets.length >= MAYOR_REQUIREMENTS.assetsOwned ? "met" : ""}>
+                            ASSETS {ownedEconomyAssets.length}/{MAYOR_REQUIREMENTS.assetsOwned}
+                          </small>
+                          <small className={valueBridge.clockIns >= MAYOR_REQUIREMENTS.clockIns ? "met" : ""}>
+                            CLOCK-INS {valueBridge.clockIns}/{MAYOR_REQUIREMENTS.clockIns}
+                          </small>
+                        </div>
+                        <button
+                          disabled={!civicReadiness.eligible && !engine.assetEconomy.civic.isMayor}
+                          onClick={runForMayor}
+                        >
+                          {engine.assetEconomy.civic.isMayor
+                            ? `SERVING SINCE DAY ${engine.assetEconomy.civic.termStartedDay}`
+                            : civicReadiness.eligible
+                              ? "RUN FOR MAYOR"
+                              : `${civicReadiness.completed}/${civicReadiness.total} REQUIREMENTS`}
+                        </button>
+                      </article>
+                      <div className="policy-grid">
+                        {CIVIC_POLICIES.map((policy) => {
+                          const active =
+                            engine.assetEconomy.civic.activePolicyId === policy.id;
+                          return (
+                            <article key={policy.id} className={active ? "active" : ""}>
+                              <span>{policy.code}</span>
+                              <strong>{policy.name}</strong>
+                              <p>{policy.effect}</p>
+                              <button
+                                disabled={
+                                  !engine.assetEconomy.civic.isMayor ||
+                                  valueBridge.cityOperationsPool < policy.cost
+                                }
+                                onClick={() => enactCivicPolicy(policy.id)}
+                              >
+                                {active
+                                  ? "ACTIVE ORDINANCE"
+                                  : !engine.assetEconomy.civic.isMayor
+                                    ? "MAYOR ACCESS"
+                                    : `ENACT / ${formatMoney(policy.cost)} CITY FUND`}
+                              </button>
+                            </article>
+                          );
+                        })}
+                      </div>
+                    </div>
                   </section>
 
                   <section className="portfolio-section">
@@ -3444,7 +3878,7 @@ export default function RhoosLiveCity() {
                                 <b>YIELD +{formatMoney(asset.yieldPerCycle)}</b>
                               </div>
                               <button onClick={() => sellEconomyAsset(asset)}>
-                                SELL TO EXCHANGE / {formatMoney(Math.round(liveValue * 0.9))}
+                                SELL / {formatMoney(Math.round(liveValue * 0.9) - quoteTrade(Math.round(liveValue * 0.9)).fee)} NET
                               </button>
                               <button
                                 className="share-asset"
@@ -3486,6 +3920,7 @@ export default function RhoosLiveCity() {
                         const price = listing
                           ? Math.round((listing.ask + liveValue) / 2)
                           : liveValue;
+                        const tradeQuote = quoteTrade(price);
                         return (
                           <article
                             key={asset.id}
@@ -3497,21 +3932,21 @@ export default function RhoosLiveCity() {
                             <p>{asset.description}</p>
                             <small>{asset.function}</small>
                             <div>
-                              <b>ASK {formatMoney(price)}</b>
+                              <b>TOTAL {formatMoney(tradeQuote.total)}</b>
                               <b>LIVE {formatMoney(liveValue)}</b>
                             </div>
-                            <em>{listing?.seller ?? "CITY"} / {listing?.serial ?? asset.code}</em>
+                            <em>{listing?.seller ?? "CITY"} / {listing?.serial ?? asset.code} / FEE {formatMoney(tradeQuote.fee)}</em>
                             <button
-                              disabled={!listing?.available || owned || engine.cash < price}
+                              disabled={!listing?.available || owned || engine.cash < tradeQuote.total}
                               onClick={() => buyEconomyAsset(asset)}
                             >
                               {owned
                                 ? "OWNED"
                                 : !listing?.available
                                   ? "SETTLED"
-                                  : engine.cash < price
-                                    ? `${formatMoney(price - engine.cash)} MORE NEEDED`
-                                    : `ACQUIRE / ${formatMoney(price)}`}
+                                  : engine.cash < tradeQuote.total
+                                    ? `${formatMoney(tradeQuote.total - engine.cash)} MORE NEEDED`
+                                    : `ACQUIRE / ${formatMoney(tradeQuote.total)}`}
                             </button>
                           </article>
                         );
@@ -3565,24 +4000,28 @@ export default function RhoosLiveCity() {
 
                   <section className="trade-ledger">
                     <div>
-                      <span>RECENT OWNERSHIP EVENTS</span>
-                      <h2>Player ledger</h2>
+                      <span>OWNERSHIP + VALUE ROUTING</span>
+                      <h2>Settlement ledger</h2>
                     </div>
                     <ol>
-                      {(engine.assetEconomy.tradeHistory.length
-                        ? engine.assetEconomy.tradeHistory
-                        : ["NO PLAYER TRADES SETTLED YET"]).map((entry, index) => (
+                      {([
+                        ...valueBridge.settlementLog,
+                        ...engine.assetEconomy.tradeHistory,
+                      ].length
+                        ? [...valueBridge.settlementLog, ...engine.assetEconomy.tradeHistory].slice(0, 12)
+                        : ["NO PLAYER ACTIVITY SETTLED YET"]).map((entry, index) => (
                         <li key={`${entry}-${index}`}>{entry}</li>
                       ))}
                     </ol>
                   </section>
 
                   <div className="exchange-safety">
-                    PROTOTYPE ASSETS, TRADES, YIELDS, AND CITY VALUE ARE
-                    DEVICE-LOCAL GAME STATE WITH NO CASH VALUE. REAL PLAYER
-                    TRADING REQUIRES AUDITED ESCROW CONTRACTS, WALLET SIGNATURES,
-                    IDENTITY, AND AN ON-CHAIN MARKETPLACE. X WEB INTENTS OPEN A
-                    PLAYER-CONTROLLED POST; THE GAME CANNOT POST AUTOMATICALLY.
+                    RHO, ASSETS, RESERVE CREDITS, DISTRIBUTIONS, AND CITY VALUE
+                    ARE DEVICE-LOCAL PROTOTYPE GAME STATE WITH NO CASH VALUE.
+                    THE VALUE BRIDGE CANNOT ENABLE WITHDRAWALS UNTIL EXTERNAL
+                    FUNDS, SIGNED IDENTITY, AUDITED CONTRACTS, CUSTODY,
+                    COMPLIANCE, TAX, AND JURISDICTIONAL CONTROLS ARE LIVE. NO
+                    YIELD OR REDEMPTION IS PROMISED.
                   </div>
                 </div>
               )}

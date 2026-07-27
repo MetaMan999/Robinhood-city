@@ -22,7 +22,7 @@ test("server-renders the NFT work TCG shell", async () => {
   const html = await response.text();
   assert.match(
     html,
-    /<title>RHOOS CITY — Living Economy RPG<\/title>/i,
+    /<title>RHOOS CITY — Work\. Own\. Lead\.<\/title>/i,
   );
   assert.match(html, /NFT WORK TCG \/ LIVING CITY ENGINE/);
   assert.match(html, /Move freely\./);
@@ -34,10 +34,12 @@ test("server-renders the NFT work TCG shell", async () => {
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton|Starter Project/i);
 });
 
-test("keeps the living economy, NFT, corporate, WebGL, soundtrack, and HookTech engines in source", async () => {
-  const [game, economy, cards, companies, wallet, threeEngine, soundEngine, data, layout, packageJson] = await Promise.all([
+test("keeps the broker economy, mayor progression, NFT, WebGL, and HookTech engines in source", async () => {
+  const [game, economy, valueEconomy, governance, cards, companies, wallet, threeEngine, soundEngine, data, layout, packageJson] = await Promise.all([
     readFile(new URL("../app/rhoos-live-city.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/economy-data.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/value-economy.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/city-governance.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/tcg-data.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/corporate-data.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/nft-wallet.ts", import.meta.url), "utf8"),
@@ -80,13 +82,18 @@ test("keeps the living economy, NFT, corporate, WebGL, soundtrack, and HookTech 
   assert.match(game, /career-match-badge/);
   assert.match(game, /requestPointerLock/);
   assert.match(game, /function runEconomy/);
-  assert.match(game, /RHOOS EXCHANGE \/ COOPERATIVE ECONOMY/);
+  assert.match(game, /RHOOS BROKER TERMINAL \/ CITY GOVERNANCE/);
   assert.match(game, /buyEconomyAsset/);
   assert.match(game, /sellEconomyAsset/);
   assert.match(game, /assetPortfolioValue/);
   assert.match(game, /shareCooperationOnX/);
   assert.match(game, /https:\/\/x\.com\/intent\/tweet/);
-  assert.match(game, /DEVICE-LOCAL GAME STATE WITH NO CASH VALUE/);
+  assert.match(game, /DEVICE-LOCAL PROTOTYPE GAME STATE WITH NO CASH VALUE/);
+  assert.match(game, /clockInBroker/);
+  assert.match(game, /runForMayor/);
+  assert.match(game, /enactCivicPolicy/);
+  assert.match(game, /WITHDRAWALS LOCKED/);
+  assert.match(game, /No magic emissions/);
   assert.match(game, /function addPacket/);
   assert.match(game, /localStorage/);
   assert.match(threeEngine, /new THREE\.WebGLRenderer/);
@@ -114,6 +121,14 @@ test("keeps the living economy, NFT, corporate, WebGL, soundtrack, and HookTech 
   assert.match(economy, /Freight Route Permit/);
   assert.match(economy, /Harbor Hands/);
   assert.match(economy, /Central Loop Collective/);
+  assert.match(valueEconomy, /MARKET_FEE_BPS = 250/);
+  assert.match(valueEconomy, /RESERVE_SHARE_BPS = 6000/);
+  assert.match(valueEconomy, /VALUE_READINESS/);
+  assert.match(valueEconomy, /quoteTrade/);
+  assert.match(governance, /MAYOR_REQUIREMENTS/);
+  assert.match(governance, /reputation: 60/);
+  assert.match(governance, /Jobs First/);
+  assert.match(governance, /Transit Flow/);
   assert.match(cards, /CITY_CARDS/);
   assert.match(cards, /STARTER_DECK/);
   assert.match(companies, /JPMorgan Chase/);
@@ -121,8 +136,8 @@ test("keeps the living economy, NFT, corporate, WebGL, soundtrack, and HookTech 
   assert.match(wallet, /eth_requestAccounts/);
   assert.match(wallet, /0x6352211e/);
   assert.doesNotMatch(wallet, /eth_sendTransaction|wallet_sendCalls/);
-  assert.match(layout, /Living Economy RPG/);
-  assert.match(layout, /Own\. Trade\. Cooperate\. Build\./);
+  assert.match(layout, /Work\. Own\. Lead\./);
+  assert.match(layout, /Become Mayor/);
   assert.match(layout, /summary_large_image/);
   assert.match(packageJson, /"name": "rhoos-city"/);
 });

@@ -3084,6 +3084,17 @@ kbd {
   cursor: pointer;
 }
 
+.exchange-hero > button:disabled {
+  cursor: not-allowed;
+  opacity: 0.64;
+}
+
+.exchange-hero > button.clocked-in {
+  border-color: var(--green);
+  border-left-color: var(--green);
+  background: rgba(101, 214, 166, 0.12);
+}
+
 .exchange-hero > button span,
 .exchange-hero > button strong {
   display: block;
@@ -3118,6 +3129,305 @@ kbd {
 .exchange-ledger span,
 .exchange-ledger strong {
   display: block;
+}
+
+.broker-terminal {
+  display: grid;
+  grid-template-columns: 310px 1fr;
+  gap: 10px;
+  padding: 26px 30px;
+  border-bottom: 1px solid var(--line);
+  background:
+    linear-gradient(135deg, rgba(103, 215, 229, 0.07), transparent 42%),
+    #0f1520;
+}
+
+.broker-vault,
+.value-flow {
+  padding: 20px;
+  border: 1px solid var(--line-hi);
+  background: #151c29;
+}
+
+.broker-vault {
+  border-top: 4px solid var(--cyan);
+}
+
+.broker-vault > span,
+.value-flow > span,
+.value-readiness article > span,
+.civic-hall article > span,
+.redemption-console span {
+  color: var(--cyan);
+  font-size: 6px;
+  letter-spacing: 0.1em;
+}
+
+.broker-vault h2,
+.value-flow h2 {
+  margin: 7px 0;
+  font-family: Arial Black, Impact, sans-serif;
+}
+
+.broker-vault h2 {
+  color: var(--paper);
+  font-size: 22px;
+}
+
+.broker-vault > b {
+  color: var(--gold);
+  font-size: 8px;
+}
+
+.broker-vault p,
+.value-flow > p,
+.value-readiness article p,
+.civic-hall article p {
+  color: var(--muted);
+  font-size: 7px;
+  line-height: 1.5;
+}
+
+.broker-vault > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 14px 0;
+}
+
+.broker-vault small,
+.mayor-requirements small {
+  padding: 5px 7px;
+  border: 1px solid var(--line-hi);
+  color: #aab5c8;
+  font-size: 6px;
+}
+
+.broker-vault button {
+  width: 100%;
+  min-height: 35px;
+  border: 1px solid var(--paper);
+  background: transparent;
+  color: var(--paper);
+  font-size: 7px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.value-flow {
+  border-top: 4px solid var(--green);
+}
+
+.value-flow > span {
+  color: var(--green);
+}
+
+.value-flow h2 {
+  font-size: 26px;
+}
+
+.value-flow-track {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr auto 1fr;
+  gap: 5px;
+  align-items: center;
+  margin: 18px 0;
+}
+
+.value-flow-track > div {
+  min-height: 78px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  background: #101620;
+}
+
+.value-flow-track b,
+.value-flow-track strong,
+.value-flow-track small {
+  display: block;
+}
+
+.value-flow-track b {
+  color: var(--green);
+  font-size: 7px;
+}
+
+.value-flow-track strong {
+  margin: 7px 0 5px;
+  color: var(--paper);
+  font-size: 8px;
+}
+
+.value-flow-track small {
+  color: var(--muted);
+  font-size: 6px;
+  line-height: 1.4;
+}
+
+.value-flow-track > i {
+  color: var(--green);
+  font-style: normal;
+}
+
+.value-readiness,
+.civic-hall {
+  padding: 26px 30px;
+  border-bottom: 1px solid var(--line);
+}
+
+.value-readiness {
+  background: #121824;
+}
+
+.readiness-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.readiness-grid article {
+  min-height: 132px;
+  padding: 13px;
+  border: 1px solid var(--line-hi);
+  border-top: 4px solid #657086;
+  background: #0f151f;
+}
+
+.readiness-grid article.live {
+  border-top-color: var(--green);
+}
+
+.readiness-grid article.live > span {
+  color: var(--green);
+}
+
+.readiness-grid article.required > span {
+  color: #ff9966;
+}
+
+.readiness-grid article strong,
+.civic-hall article strong {
+  display: block;
+  margin-top: 9px;
+  color: var(--paper);
+  font-size: 9px;
+  line-height: 1.3;
+}
+
+.redemption-console {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.3fr;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.redemption-console > div,
+.redemption-console > button {
+  min-height: 62px;
+  padding: 11px;
+  border: 1px solid var(--line-hi);
+  background: #0d121b;
+}
+
+.redemption-console strong {
+  display: block;
+  margin-top: 7px;
+  color: #ff9966;
+  font-size: 9px;
+}
+
+.redemption-console button {
+  color: #657086;
+  font-size: 7px;
+  font-weight: 900;
+}
+
+.civic-hall {
+  background:
+    radial-gradient(circle at 87% 13%, rgba(244, 211, 94, 0.09), transparent 26%),
+    #0f1520;
+}
+
+.civic-grid {
+  display: grid;
+  grid-template-columns: 330px 1fr;
+  gap: 9px;
+}
+
+.mayor-card,
+.policy-grid article {
+  padding: 16px;
+  border: 1px solid var(--line-hi);
+  background: #161c28;
+}
+
+.mayor-card {
+  border-left: 5px solid var(--gold);
+}
+
+.mayor-card > span,
+.policy-grid article > span {
+  color: var(--gold);
+}
+
+.mayor-card > strong {
+  font-size: 18px !important;
+}
+
+.mayor-requirements {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+  margin: 14px 0;
+}
+
+.mayor-requirements small.met {
+  border-color: var(--green);
+  color: var(--green);
+}
+
+.mayor-card button,
+.policy-grid button {
+  width: 100%;
+  min-height: 35px;
+  border: 1px solid var(--gold);
+  background: rgba(244, 211, 94, 0.08);
+  color: var(--gold);
+  font-size: 7px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.mayor-card button:disabled,
+.policy-grid button:disabled {
+  border-color: var(--line-hi);
+  background: #111621;
+  color: #5e687b;
+  cursor: not-allowed;
+}
+
+.policy-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.policy-grid article {
+  display: flex;
+  flex-direction: column;
+  border-top: 4px solid var(--gold);
+}
+
+.policy-grid article.active {
+  box-shadow: inset 0 0 0 1px var(--gold);
+}
+
+.policy-grid article p {
+  min-height: 52px;
+}
+
+.policy-grid article button {
+  margin-top: auto;
 }
 
 .exchange-ledger span {
@@ -4157,6 +4467,23 @@ kbd {
     grid-template-columns: repeat(3, 1fr);
   }
 
+  .broker-terminal,
+  .civic-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .readiness-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .value-flow-track {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+
+  .value-flow-track > i {
+    display: none;
+  }
+
   .exchange-ledger > div:nth-child(3n) {
     border-right: 0;
   }
@@ -4172,7 +4499,10 @@ kbd {
   .portfolio-section,
   .market-section,
   .cooperative-section,
-  .trade-ledger {
+  .trade-ledger,
+  .broker-terminal,
+  .value-readiness,
+  .civic-hall {
     padding: 20px;
   }
 
@@ -4184,6 +4514,13 @@ kbd {
 
   .exchange-ledger {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .readiness-grid,
+  .policy-grid,
+  .redemption-console,
+  .value-flow-track {
+    grid-template-columns: 1fr;
   }
 
   .exchange-ledger > div:nth-child(3n) {

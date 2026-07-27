@@ -8,7 +8,15 @@ work deck, win corporate job encounters, rise from intern to District Boss,
 own businesses, trade functional assets, join cooperatives, and automate the
 economy with HookTech.
 
-Version 0.10 adds the RHOOS Exchange: twelve codified assets with limited
+Version 0.11 adds a productive broker economy and civic progression. Players
+can clock in for time-limited work bonuses, accumulate verified work and output
+units, route transparent marketplace fees into reserve/cooperative/city ledgers,
+track a player-bound economic vault, and follow an explicit readiness path
+toward externally funded settlement. High-reputation players who complete the
+civic requirements can run for mayor and enact policies affecting wages,
+traffic, vehicle value, and local-business demand.
+
+Version 0.10 added the RHOOS Exchange: twelve codified assets with limited
 supply and real city functions, demand-driven live values, a persistent
 portfolio, buy/sell trades, simulated operating yields, three player
 cooperatives with shared earnings, and player-controlled X cooperation links.
@@ -76,6 +84,14 @@ Open the local address printed by the development server.
 
 ## Living economy systems
 
+- Clock In participation rounds with useful-work bonuses and shift streaks
+- Player-bound broker vault tracking work, output, assets, fees, and distributions
+- Transparent 2.5% simulated market fee split across reserve, cooperative, and
+  city-operations ledgers
+- Productive-power scoring based on work, output, reputation, assets, and participation
+- Five-stage real-value readiness model with external withdrawals visibly locked
+- Civic ladder from Resident to Mayoral Candidate and Mayor
+- Functional mayor ordinances for jobs, transit, and local enterprise
 - Twelve codified assets across vehicles, businesses, property, contracts,
   utilities, tools, and v4 Hook modules
 - Limited supply, unique serials, city functions, market asks, and
@@ -148,6 +164,8 @@ Jones Indices. It contains no live stock prices or investment products.
 - `app/tcg-data.ts`: card definitions and starter collection
 - `app/corporate-data.ts`: prototype corporate workplaces and role ladder
 - `app/economy-data.ts`: codified functional assets and cooperative definitions
+- `app/value-economy.ts`: fees, vault accounting, Clock In, and value-bridge formulas
+- `app/city-governance.ts`: mayor requirements, civic ranks, and city policies
 - `app/nft-wallet.ts`: read-only EIP-1193/ERC-721 ownership verification
 - `app/rhoos-three-engine.ts`: Three.js living-city renderer
 - `app/rhoos-sound-engine.ts`: procedural soundtrack and game sounds
@@ -161,6 +179,8 @@ Jones Indices. It contains no live stock prices or investment products.
 npm test
 ```
 
-Progression and RHO credits are device-local prototype game state with no cash
-value. The game never requests NFT transfers, approvals, minting, or automatic
-spending.
+Progression, RHO credits, simulated reserve balances, distributions, and assets
+are device-local prototype game state with no cash value. Real redemption
+requires external funding, signed identity, audited contracts, custody, and
+appropriate legal, tax, and jurisdictional controls. The game never requests
+NFT transfers, approvals, minting, or automatic spending.

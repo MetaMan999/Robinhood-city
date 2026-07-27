@@ -3,27 +3,27 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://rhoos-city-district-one.meta5555.chatgpt.site"),
-  title: "RHOOS CITY — Living Economy RPG",
+  title: "RHOOS CITY — Work. Own. Lead.",
   description:
-    "Work, drive, own functional city assets, trade a live portfolio, join cooperatives, and build a persistent economic life in RHOOS CITY.",
+    "Clock in, perform useful work, own productive assets, build cooperatives, rise through civic reputation, and become mayor of RHOOS CITY.",
   openGraph: {
-    title: "RHOOS CITY — Own. Trade. Cooperate. Build.",
+    title: "RHOOS CITY — Clock In. Build Value. Become Mayor.",
     description:
-      "A living-city RPG with codified functional assets, a player marketplace, cooperative earnings, jobs, businesses, property, traffic, and driveable cars.",
+      "A living-city broker RPG where work creates output, asset trades fund a transparent reserve ledger, and high-reputation players can govern the city.",
     images: [
       {
         url: "/og.png",
         width: 1536,
         height: 1024,
-        alt: "RHOOS CITY player, functional asset cards, cooperative market, businesses, and cars",
+        alt: "RHOOS CITY broker clocks in, builds productive assets, and rises toward city leadership",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "RHOOS CITY — Own. Trade. Cooperate. Build.",
+    title: "RHOOS CITY — Clock In. Build Value. Become Mayor.",
     description:
-      "Work, drive, own functional city assets, trade a live portfolio, and build value with other players.",
+      "Work, own productive assets, build cooperatives, generate transparent city fees, and earn the reputation to become mayor.",
     images: ["/og.png"],
   },
   icons: {
